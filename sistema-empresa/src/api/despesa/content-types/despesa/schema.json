@@ -17,10 +17,12 @@
       "required": true
     },
     "valor": {
-      "type": "decimal"
+      "type": "decimal",
+      "required": true
     },
     "data_despesa": {
-      "type": "date"
+      "type": "date",
+      "required": true
     },
     "categoria": {
       "type": "enumeration",
@@ -31,7 +33,8 @@
         "combustivel",
         "outros"
       ],
-      "default": "outros"
+      "default": "outros",
+      "required": true
     },
     "status": {
       "type": "enumeration",
@@ -40,7 +43,8 @@
         "aprovada",
         "rejeitada"
       ],
-      "default": "pendente"
+      "default": "pendente",
+      "required": true
     },
     "comprovativo": {
       "type": "media",
@@ -58,9 +62,8 @@
     },
     "users_permissions_user": {
       "type": "relation",
-      "relation": "oneToOne",
-      "target": "plugin::users-permissions.user",
-      "inversedBy": "despesa"
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
     }
   }
 }

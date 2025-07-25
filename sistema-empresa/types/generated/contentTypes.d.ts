@@ -377,6 +377,7 @@ export interface ApiDespesaDespesa extends Schema.CollectionType {
     categoria: Attribute.Enumeration<
       ['transporte', 'alimentacao', 'hospedagem', 'combustivel', 'outros']
     > &
+      Attribute.Required &
       Attribute.DefaultTo<'outros'>;
     comprovativo: Attribute.Media<'images' | 'files' | 'videos' | 'audios'>;
     createdAt: Attribute.DateTime;
@@ -386,11 +387,12 @@ export interface ApiDespesaDespesa extends Schema.CollectionType {
       'admin::user'
     > &
       Attribute.Private;
-    data_despesa: Attribute.Date;
+    data_despesa: Attribute.Date & Attribute.Required;
     descricao: Attribute.String & Attribute.Required;
     observacoes: Attribute.Text;
     publishedAt: Attribute.DateTime;
     status: Attribute.Enumeration<['pendente', 'aprovada', 'rejeitada']> &
+      Attribute.Required &
       Attribute.DefaultTo<'pendente'>;
     updatedAt: Attribute.DateTime;
     updatedBy: Attribute.Relation<
@@ -401,10 +403,10 @@ export interface ApiDespesaDespesa extends Schema.CollectionType {
       Attribute.Private;
     users_permissions_user: Attribute.Relation<
       'api::despesa.despesa',
-      'oneToOne',
+      'manyToOne',
       'plugin::users-permissions.user'
     >;
-    valor: Attribute.Decimal;
+    valor: Attribute.Decimal & Attribute.Required;
   };
 }
 
