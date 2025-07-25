@@ -1,0 +1,46 @@
+{
+  "kind": "collectionType",
+  "collectionName": "documentos",
+  "info": {
+    "singularName": "documento",
+    "pluralName": "documentos",
+    "displayName": "Documento",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "nome": {
+      "type": "string",
+      "required": true
+    },
+    "tipo": {
+      "type": "enumeration",
+      "enum": [
+        "contrato",
+        "recibo_vencimento",
+        "certificado",
+        "outros"
+      ]
+    },
+    "arquivo": {
+      "type": "media",
+      "multiple": false,
+      "required": true,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "users_permissions_user": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "documento"
+    }
+  }
+}

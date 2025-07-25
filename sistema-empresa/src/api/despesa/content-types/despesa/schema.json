@@ -1,0 +1,66 @@
+{
+  "kind": "collectionType",
+  "collectionName": "despesas",
+  "info": {
+    "singularName": "despesa",
+    "pluralName": "despesas",
+    "displayName": "Despesa",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "descricao": {
+      "type": "string",
+      "required": true
+    },
+    "valor": {
+      "type": "decimal"
+    },
+    "data_despesa": {
+      "type": "date"
+    },
+    "categoria": {
+      "type": "enumeration",
+      "enum": [
+        "transporte",
+        "alimentacao",
+        "hospedagem",
+        "combustivel",
+        "outros"
+      ],
+      "default": "outros"
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": [
+        "pendente",
+        "aprovada",
+        "rejeitada"
+      ],
+      "default": "pendente"
+    },
+    "comprovativo": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "observacoes": {
+      "type": "text"
+    },
+    "users_permissions_user": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "despesa"
+    }
+  }
+}
