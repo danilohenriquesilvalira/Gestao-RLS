@@ -1,5 +1,31 @@
 // types/index.ts - Tipos corrigidos e completos
 
+// 🔥 Nova interface para a estrutura de mídia (arquivos) do Strapi
+export interface Media {
+  id: number;
+  name: string;
+  alternativeText: string | null;
+  caption: string | null;
+  width: number | null;
+  height: number | null;
+  formats: {
+    thumbnail?: { url: string; };
+    small?: { url: string; };
+    medium?: { url: string; };
+    large?: { url: string; };
+  };
+  hash: string;
+  ext: string;
+  mime: string;
+  size: number;
+  url: string; // Esta é a URL relativa que api.getMediaUrl usará
+  previewUrl: string | null;
+  provider: string;
+  provider_metadata: any | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface User {
   id: number;
   username: string;
@@ -19,6 +45,7 @@ export interface User {
   };
   createdAt: string;
   updatedAt: string;
+  avatar?: Media; // 🔥 Adicione esta linha: 'avatar' agora é do tipo 'Media' e é opcional
 }
 
 export interface Despesa {
