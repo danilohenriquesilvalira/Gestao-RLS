@@ -11,6 +11,7 @@ import {
   Home,
   Receipt,
   FileText,
+  Clock, // ÍCONE PARA PONTO
   User as UserIcon,
   LogOut,
   Loader2,
@@ -18,8 +19,6 @@ import {
   Search,
   Settings,
   ChevronDown,
-  // ChevronRight, // Removido
-  // ChevronLeft,  // Removido
 } from 'lucide-react';
 import RLSLogo from '@/components/RLSLogo';
 import NotificationDropdown from '@/components/ui/NotificationDropdown';
@@ -40,6 +39,7 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
   { name: 'Despesas', href: '/dashboard/despesas', icon: Receipt },
   { name: 'Documentos', href: '/dashboard/documentos', icon: FileText },
+  { name: 'Ponto', href: '/dashboard/ponto', icon: Clock }, // ADICIONADO PONTO
 ];
 
 export default function DashboardLayout({
@@ -49,13 +49,11 @@ export default function DashboardLayout({
 }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false); // Mobile sidebar state
-  // const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // Removido: A sidebar não será mais colapsável
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [pendingExpensesCount, setPendingExpensesCount] = useState(0);
 
-  // Refs para fechar dropdowns ao clicar fora
   const userMenuRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
 
@@ -95,7 +93,6 @@ export default function DashboardLayout({
     };
   }, []);
 
-  // Handler para fechar dropdowns ao clicar fora
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
@@ -146,12 +143,12 @@ export default function DashboardLayout({
 
   const handleBellClick = () => {
     setNotificationsOpen((prev) => !prev);
-    setUserMenuOpen(false); // Fecha o menu do usuário se as notificações abrirem
+    setUserMenuOpen(false);
   };
 
   const handleUserMenuClick = () => {
     setUserMenuOpen((prev) => !prev);
-    setNotificationsOpen(false); // Fecha as notificações se o menu do usuário abrir
+    setNotificationsOpen(false);
   };
 
   const handleLogout = () => {
@@ -176,9 +173,8 @@ export default function DashboardLayout({
 
   if (!user) return null;
 
-  // Define sidebar width - agora fixo como expandida
-  const sidebarWidth = 'w-64'; // Sempre expandida
-  const mainContentMargin = 'lg:ml-64'; // Margem para o conteúdo principal, sempre baseado na sidebar expandida
+  const sidebarWidth = 'w-64';
+  const mainContentMargin = 'lg:ml-64';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 font-sans text-gray-900">
@@ -196,9 +192,9 @@ export default function DashboardLayout({
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
         lg:translate-x-0 flex flex-col`}
       >
-        {/* Logo Header - Alterado para centralizar o RLSLogo */}
+        {/* Logo Header */}
         <div
-          className={`relative flex items-center justify-center h-20 border-b border-gray-100 shadow-sm`} // Alterado de justify-start px-6 para justify-center
+          className={`relative flex items-center justify-center h-20 border-b border-gray-100 shadow-sm`}
         >
           <RLSLogo
             className={`h-10 w-auto transition-transform duration-300 hover:scale-105`}
@@ -210,7 +206,6 @@ export default function DashboardLayout({
           >
             <X className="w-6 h-6" />
           </button>
-          {/* O botão de recolher/expandir foi removido daqui */}
         </div>
 
         {/* Navigation Section */}
@@ -240,10 +235,9 @@ export default function DashboardLayout({
                       }`}
                     />
                     <span className="whitespace-nowrap">{item.name}</span>
-                    {isActive && ( // O ponto ativo permanece no lado direito do item expandido
+                    {isActive && (
                       <div className="absolute right-4 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-white rounded-full shadow-md" />
                     )}
-                    {/* Tooltip para collapsed mode foi removido */}
                   </Link>
                 </li>
               );
@@ -252,7 +246,7 @@ export default function DashboardLayout({
         </nav>
 
         {/* Horizontal Divider for Sections */}
-        <div className="mx-4 my-2 border-t border-gray-200" /> {/* Stylish divider */}
+        <div className="mx-4 my-2 border-t border-gray-200" />
 
         {/* User Profile Section */}
         <div className={`p-4`}>
@@ -268,8 +262,6 @@ export default function DashboardLayout({
               </p>
               <p className="text-xs text-gray-600 truncate">{user.email}</p>
             </div>
-            {/* O ChevronRight foi removido daqui */}
-            {/* Tooltip para collapsed user info foi removido */}
           </div>
           <button
             onClick={handleLogout}
@@ -277,7 +269,6 @@ export default function DashboardLayout({
           >
             <LogOut className={`w-5 h-5 mr-3 group-hover:scale-105 transition-transform text-red-500`} />
             <span className="whitespace-nowrap">Sair da Conta</span>
-            {/* Tooltip para collapsed logout foi removido */}
           </button>
         </div>
       </div>

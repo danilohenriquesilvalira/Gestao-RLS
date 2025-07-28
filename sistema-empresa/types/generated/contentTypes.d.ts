@@ -451,6 +451,54 @@ export interface ApiDocumentoDocumento extends Schema.CollectionType {
   };
 }
 
+export interface ApiRegistroMensalRegistroMensal extends Schema.CollectionType {
+  collectionName: 'registro_mensals';
+  info: {
+    description: '';
+    displayName: 'registro-mensal';
+    pluralName: 'registro-mensals';
+    singularName: 'registro-mensal';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    ano: Attribute.Integer;
+    aprovado_por: Attribute.Relation<
+      'api::registro-mensal.registro-mensal',
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    createdAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'api::registro-mensal.registro-mensal',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    data_aprovacao: Attribute.Date;
+    horas_extras: Attribute.Decimal;
+    horas_normais: Attribute.Decimal;
+    mes: Attribute.Integer & Attribute.Required;
+    observacoes: Attribute.String;
+    publishedAt: Attribute.DateTime;
+    status: Attribute.Enumeration<['pendente', 'aprovado', 'pago']>;
+    total_horas: Attribute.Decimal;
+    updatedAt: Attribute.DateTime;
+    updatedBy: Attribute.Relation<
+      'api::registro-mensal.registro-mensal',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    users_permissions_user: Attribute.Relation<
+      'api::registro-mensal.registro-mensal',
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+  };
+}
+
 export interface PluginContentReleasesRelease extends Schema.CollectionType {
   collectionName: 'strapi_releases';
   info: {
@@ -869,6 +917,11 @@ export interface PluginUsersPermissionsUser extends Schema.CollectionType {
         minLength: 6;
       }>;
     provider: Attribute.String;
+    registro_mensals: Attribute.Relation<
+      'plugin::users-permissions.user',
+      'oneToMany',
+      'api::registro-mensal.registro-mensal'
+    >;
     resetPasswordToken: Attribute.String & Attribute.Private;
     role: Attribute.Relation<
       'plugin::users-permissions.user',
@@ -905,6 +958,7 @@ declare module '@strapi/types' {
       'admin::user': AdminUser;
       'api::despesa.despesa': ApiDespesaDespesa;
       'api::documento.documento': ApiDocumentoDocumento;
+      'api::registro-mensal.registro-mensal': ApiRegistroMensalRegistroMensal;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;

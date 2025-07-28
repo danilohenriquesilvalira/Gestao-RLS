@@ -1,6 +1,5 @@
-// types/index.ts - Tipos corrigidos e completos
+// types/index.ts - ARQUIVO COMPLETO
 
-// 🔥 Nova interface para a estrutura de mídia (arquivos) do Strapi
 export interface Media {
   id: number;
   name: string;
@@ -18,7 +17,7 @@ export interface Media {
   ext: string;
   mime: string;
   size: number;
-  url: string; // Esta é a URL relativa que api.getMediaUrl usará
+  url: string;
   previewUrl: string | null;
   provider: string;
   provider_metadata: any | null;
@@ -45,12 +44,12 @@ export interface User {
   };
   createdAt: string;
   updatedAt: string;
-  avatar?: Media; // 🔥 Adicione esta linha: 'avatar' agora é do tipo 'Media' e é opcional
+  avatar?: Media;
 }
 
 export interface Despesa {
   id: number;
-  descricao: string; // Garantir que não é null/undefined
+  descricao: string;
   valor: number;
   data_despesa: string;
   categoria: 'transporte' | 'alimentacao' | 'hospedagem' | 'combustivel' | 'outros';
@@ -71,7 +70,7 @@ export interface Despesa {
 
 export interface Documento {
   id: number;
-  nome: string; // Garantir que não é null/undefined
+  nome: string;
   tipo: 'contrato' | 'recibo_vencimento' | 'certificado' | 'outros';
   arquivo: {
     id: number;
@@ -84,6 +83,34 @@ export interface Documento {
   publishedAt?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// PONTO MENSAL SIMPLES
+export interface RegistroMensal {
+  id: number;
+  mes: number;
+  ano: number;
+  dias_trabalhados: number;
+  horas_normais: number;
+  horas_extras: number;
+  total_horas: number;
+  observacoes?: string;
+  status: 'pendente' | 'aprovado' | 'pago';
+  users_permissions_user?: User;
+  aprovado_por?: User;
+  data_aprovacao?: string;
+  publishedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRegistroMensal {
+  mes: number;
+  ano: number;
+  dias_trabalhados: number;
+  horas_extras: number;
+  observacoes?: string;
+  users_permissions_user: number;
 }
 
 export interface DashboardStats {
@@ -130,7 +157,6 @@ export interface UploadResponse {
   updatedAt: string;
 }
 
-// Tipos para formulários
 export interface CreateDespesaData {
   descricao: string;
   valor: number;
@@ -149,7 +175,6 @@ export interface CreateDocumentoData {
   users_permissions_user?: number;
 }
 
-// Tipos para notificações
 export interface Notification {
   id: string;
   tipo: 'despesa_pendente' | 'despesa_aprovada' | 'despesa_rejeitada';
@@ -160,10 +185,8 @@ export interface Notification {
   lida: boolean;
 }
 
-// Tipos para filtros
 export type StatusDespesa = 'todas' | 'pendente' | 'aprovada' | 'rejeitada';
 export type StatusDocumento = 'todos' | 'contrato' | 'recibo_vencimento' | 'certificado' | 'outros';
 
-// Utilitários de tipo
 export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
 export type RequiredBy<T, K extends keyof T> = T & Required<Pick<T, K>>;

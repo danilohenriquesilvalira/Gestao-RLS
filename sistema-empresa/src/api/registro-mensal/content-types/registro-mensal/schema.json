@@ -1,0 +1,58 @@
+{
+  "kind": "collectionType",
+  "collectionName": "registro_mensals",
+  "info": {
+    "singularName": "registro-mensal",
+    "pluralName": "registro-mensals",
+    "displayName": "registro-mensal",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "mes": {
+      "type": "integer",
+      "required": true
+    },
+    "horas_extras": {
+      "type": "decimal"
+    },
+    "observacoes": {
+      "type": "string"
+    },
+    "users_permissions_user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "registro_mensals"
+    },
+    "aprovado_por": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "registro_mensals"
+    },
+    "data_aprovacao": {
+      "type": "date"
+    },
+    "horas_normais": {
+      "type": "decimal"
+    },
+    "total_horas": {
+      "type": "decimal"
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": [
+        "pendente",
+        "aprovado",
+        "pago"
+      ]
+    },
+    "ano": {
+      "type": "integer"
+    }
+  }
+}
