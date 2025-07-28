@@ -13,11 +13,14 @@ import {
     FileText,
     User as UserIcon,
     LogOut,
-    Loader2
+    Loader2,
+    Bell,
+    Search,
+    Settings,
+    ChevronDown,
+    Activity
 } from 'lucide-react';
-
-// 
-import RLSLogo from '@/components/RLSLogo'; // 
+import RLSLogo from '@/components/RLSLogo';
 
 const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
@@ -33,6 +36,7 @@ export default function DashboardLayout({
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [userMenuOpen, setUserMenuOpen] = useState(false);
     const router = useRouter();
     const pathname = usePathname();
 
@@ -62,10 +66,10 @@ export default function DashboardLayout({
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="flex items-center space-x-2 text-primary-600">
-                    <Loader2 className="w-6 h-6 animate-spin" />
-                    <span>Carregando...</span>
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+                <div className="flex items-center space-x-3 text-primary-600 bg-white p-8 rounded-2xl shadow-xl">
+                    <Loader2 className="w-8 h-8 animate-spin" />
+                    <span className="text-lg font-medium">Carregando...</span>
                 </div>
             </div>
         );
@@ -74,50 +78,56 @@ export default function DashboardLayout({
     if (!user) return null;
 
     return (
-        <div className="min-h-screen bg-gray-100 flex">
-            {/*  */}
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+            {/* Overlay para mobile */}
             {sidebarOpen && (
                 <div
-                    className="fixed inset-0 z-40 bg-gray-900 bg-opacity-75 lg:hidden"
+                    className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm lg:hidden"
                     onClick={() => setSidebarOpen(false)}
                 />
             )}
 
-            {/* */}
-            <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${ // Largura da sidebar reduzida para w-64
+            {/* Sidebar */}
+            <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-white/80 backdrop-blur-xl border-r border-gray-200/50 shadow-xl transform transition-all duration-300 ease-out lg:translate-x-0 ${
                 sidebarOpen ? "translate-x-0" : "-translate-x-full"
             }`}>
-
-                {/*  */}
-                <div className="flex items-center justify-center h-16 px-4 border-b border-gray-200 bg-gray-50"> {/* Altura e padding reduzidos */}
-                    <RLSLogo className="h-10 w-auto" /> {/* Logo menor */}
+                
+                {/* Logo Header */}
+                <div className="relative flex items-center justify-center h-20 px-6 border-b border-gray-200/50">
+                    <div className="flex items-center justify-center w-full">
+                        <RLSLogo className="h-14 w-auto" />
+                    </div>
                     <button
                         onClick={() => setSidebarOpen(false)}
-                        className="lg:hidden p-1.5 rounded-md text-gray-400 hover:text-gray-600 absolute right-3 top-1/2 -translate-y-1/2" // Padding e posição ajustados
+                        className="lg:hidden absolute right-4 p-2 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100/50 transition-all duration-200"
                     >
-                        <X className="w-5 h-5" /> {/* Icone menor */}
+                        <X className="w-5 h-5" />
                     </button>
                 </div>
 
-                {/* Navigation principal da Sidebar */}
-                <nav className="flex-1 px-3 py-6"> {/* Padding reduzido */}
-                    <ul className="space-y-1.5"> {/* Espaçamento reduzido */}
+                {/* Navigation */}
+                <nav className="flex-1 px-6 py-8">
+                    <ul className="space-y-3">
                         {navigation.map((item) => {
                             const isActive = pathname === item.href;
-
                             return (
                                 <li key={item.name}>
                                     <Link
                                         href={item.href}
                                         onClick={() => setSidebarOpen(false)}
-                                        className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-200 ${ // Padding, texto e rounded reduzidos
+                                        className={`group flex items-center px-5 py-4 text-sm font-medium rounded-xl transition-all duration-200 ${
                                             isActive
-                                                ? "bg-primary-100 text-primary-700 border-l-4 border-primary-600 font-semibold"
-                                                : "text-gray-700 hover:text-gray-900 hover:bg-gray-100"
+                                                ? "bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/25"
+                                                : "text-gray-700 hover:text-primary-600 hover:bg-primary-50/50"
                                         }`}
                                     >
-                                        <item.icon className="w-4 h-4 mr-2" /> {/* Icone menor */}
+                                        <item.icon className={`w-5 h-5 mr-4 transition-transform duration-200 ${
+                                            isActive ? "scale-110" : "group-hover:scale-105"
+                                        }`} />
                                         {item.name}
+                                        {isActive && (
+                                            <div className="ml-auto w-2 h-2 bg-white rounded-full animate-pulse" />
+                                        )}
                                     </Link>
                                 </li>
                             );
@@ -125,47 +135,114 @@ export default function DashboardLayout({
                     </ul>
                 </nav>
 
-                {/* Informações do Utilizador e Logout na Sidebar */}
-                <div className="p-4 border-t border-gray-200 bg-gray-50"> {/* Padding e borda reduzidos */}
-                    <div className="flex items-center space-x-3 mb-3"> {/* Espaçamento reduzido */}
-                        <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center border border-primary-200"> {/* Tamanho menor */}
-                            <UserIcon className="w-5 h-5 text-primary-600" /> {/* Icone menor */}
+                {/* User Profile Section */}
+                <div className="p-6 border-t border-gray-200/50 bg-gradient-to-r from-gray-50/50 to-white/50">
+                    <div className="flex items-center space-x-3 p-4 rounded-xl bg-white/70 border border-gray-200/50 mb-4">
+                        <div className="w-11 h-11 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center shadow-md">
+                            <UserIcon className="w-5 h-5 text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-gray-900 truncate"> {/* Texto menor */}
+                            <p className="text-sm font-semibold text-gray-900 truncate">
                                 {user.nomecompleto || user.username}
                             </p>
-                            <p className="text-xs text-gray-600 truncate">{user.email}</p> {/* Texto menor */}
+                            <p className="text-xs text-gray-500 truncate">{user.email}</p>
                         </div>
                     </div>
                     <button
                         onClick={handleLogout}
-                        className="w-full flex items-center px-3 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors font-medium" // Padding e rounded reduzidos
+                        className="w-full flex items-center px-5 py-3 text-sm text-red-600 hover:text-red-700 hover:bg-red-50/50 rounded-xl transition-all duration-200 font-medium group"
                     >
-                        <LogOut className="w-4 h-4 mr-2" /> {/* Icone menor */}
-                        Sair
+                        <LogOut className="w-4 h-4 mr-3 group-hover:scale-105 transition-transform" />
+                        Sair da Conta
                     </button>
                 </div>
             </div>
 
-            {/* Área de Conteúdo Principal - Onde o DashboardPage será renderizado */}
-            <div className="flex-1 lg:ml-64 bg-gray-100 p-4 sm:p-6"> {/* Margem esquerda e padding reduzidos para corresponder à sidebar */}
-                {/* Top bar para Mobile - Fixa no topo */}
-                <div className="lg:hidden flex items-center justify-between h-14 px-4 bg-white border-b border-gray-200 shadow-sm fixed top-0 left-0 w-full z-30"> {/* Altura reduzida */}
-                    <button
-                        onClick={() => setSidebarOpen(true)}
-                        className="p-1.5 rounded-md text-gray-500 hover:text-gray-700"
-                    >
-                        <Menu className="w-5 h-5" /> {/* Icone menor */}
-                    </button>
-                    <span className="text-sm font-medium text-gray-700"> {/* Texto menor */}
-                        {user.nomecompleto || user.username}
-                    </span>
-                </div>
+            {/* Main Content */}
+            <div className="lg:ml-72">
+                {/* Top Header */}
+                <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-gray-200/50 shadow-sm">
+                    <div className="flex items-center justify-between h-16 px-6">
+                        {/* Mobile menu button */}
+                        <button
+                            onClick={() => setSidebarOpen(true)}
+                            className="lg:hidden p-2 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 transition-all duration-200"
+                        >
+                            <Menu className="w-5 h-5" />
+                        </button>
 
-                {/* */}
-                <main className="h-full pt-14 lg:pt-0 pb-6"> {/*  */}
-                    {children}
+                        {/* Page title - Desktop only */}
+                        <div className="hidden lg:block">
+                            <h1 className="text-lg font-semibold text-gray-900">
+                                {navigation.find(nav => nav.href === pathname)?.name || 'Dashboard'}
+                            </h1>
+                        </div>
+
+                        {/* Right side actions */}
+                        <div className="flex items-center space-x-3">
+                            {/* Search button */}
+                            <button className="p-2 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 transition-all duration-200">
+                                <Search className="w-5 h-5" />
+                            </button>
+
+                            {/* Notifications */}
+                            <button className="relative p-2 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 transition-all duration-200">
+                                <Bell className="w-5 h-5" />
+                                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                            </button>
+
+                            {/* User menu - Desktop */}
+                            <div className="hidden lg:block relative">
+                                <button
+                                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                                    className="flex items-center space-x-2 p-2 rounded-xl hover:bg-gray-100/50 transition-all duration-200"
+                                >
+                                    <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
+                                        <UserIcon className="w-4 h-4 text-white" />
+                                    </div>
+                                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                                </button>
+
+                                {/* User dropdown */}
+                                {userMenuOpen && (
+                                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-200/50 py-2">
+                                        <div className="px-4 py-2 border-b border-gray-100">
+                                            <p className="text-sm font-medium text-gray-900">{user.nomecompleto}</p>
+                                            <p className="text-xs text-gray-500">{user.email}</p>
+                                        </div>
+                                        <button className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                            <Settings className="w-4 h-4 mr-3" />
+                                            Configurações
+                                        </button>
+                                        <button 
+                                            onClick={handleLogout}
+                                            className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                                        >
+                                            <LogOut className="w-4 h-4 mr-3" />
+                                            Sair
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Mobile user info */}
+                            <div className="lg:hidden flex items-center space-x-2">
+                                <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
+                                    <UserIcon className="w-4 h-4 text-white" />
+                                </div>
+                                <span className="text-sm font-medium text-gray-700 max-w-24 truncate">
+                                    {user.nomecompleto?.split(' ')[0]}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                {/* Page Content */}
+                <main className="p-6">
+                    <div className="max-w-7xl mx-auto">
+                        {children}
+                    </div>
                 </main>
             </div>
         </div>
