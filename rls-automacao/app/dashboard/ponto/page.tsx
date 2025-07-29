@@ -1,40 +1,60 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react'; // Adicionado useCallback
-import { pontoAPI, PontoMensal, CreatePonto } from '@/lib/pontoApi';
+import { useState, useEffect, useCallback } from 'react';
+import { pontoAPI, PontoMensal } from '@/lib/pontoApi';
 import PDFGenerator from '@/utils/pdfGenerator';
 import { useAuth } from '@/hooks/useAuth';
 import {
     Calendar,
     Clock,
-    Plus,
-    CheckCircle,
-    Download,
-    Edit,
     Users,
+    TrendingUp,
+    BarChart3,
+    PieChart,
+    Download,
+    FileDown,
+    Plus,
+    Edit,
     Trash2,
+    CheckCircle,
     DollarSign,
-    Search // Adicionado o ícone de busca
+    History
 } from 'lucide-react';
+import {
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    Legend,
+    ResponsiveContainer,
+    PieChart as RechartsPieChart,
+    Pie,
+    Cell
+} from 'recharts';
 
 import Loading from '@/components/ui/Loading';
+import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
-import PageHeader from '@/components/ui/PageHeader';
-import Alert from '@/components/ui/Alert';
+import RegistrosDialog from '@/components/ui/RegistrosDialog';
 
-export default function PontoSimples() {
+export default function PontoDashboard() {
     const { user, isAdmin } = useAuth();
     const [pontos, setPontos] = useState<PontoMensal[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [selectedFuncionario, setSelectedFuncionario] = useState<string>('');
+    const [selectedMes, setSelectedMes] = useState<number>(0);
+    const [selectedAno, setSelectedAno] = useState<number>(0);
     const [showModal, setShowModal] = useState(false);
+    const [showRegistrosDialog, setShowRegistrosDialog] = useState(false);
     const [editando, setEditando] = useState<PontoMensal | null>(null);
     const [submitting, setSubmitting] = useState(false);
-    const [searchQuery, setSearchQuery] = useState(''); // Estado para o termo de busca
 
     // Form state
-    const [form, setForm] = useState<CreatePonto>({
+    const [form, setForm] = useState({
         mes: new Date().getMonth() + 1,
         ano: new Date().getFullYear(),
         dias_trabalhados: 22,
@@ -42,9 +62,8 @@ export default function PontoSimples() {
         observacoes: ''
     });
 
-    // Carregar pontos (agora com filtro de nome)
-    // Usamos useCallback para memoizar a função e evitar recriações desnecessárias
-    const carregarPontos = useCallback(async (filterQuery?: string) => {
+    // Carregar pontos
+    const carregarPontos = useCallback(async () => {
         if (!user) {
             setLoading(false);
             return;
@@ -54,30 +73,19 @@ export default function PontoSimples() {
             setLoading(true);
             setError('');
             
-            console.log(`📅 Carregando pontos para ${user.nomecompleto} (Admin: ${isAdmin})`);
-            // Passamos o filterQuery para a API se ele existir
-            const data = await pontoAPI.buscarPontos(isAdmin, user.id, filterQuery);
+            const data = await pontoAPI.buscarPontos(isAdmin, user.id);
             setPontos(data);
             
         } catch (err: any) {
             setError(err.message || 'Erro ao carregar pontos');
-            console.error('❌ Erro:', err);
         } finally {
             setLoading(false);
         }
-    }, [user, isAdmin]); // Dependências do useCallback
+    }, [user, isAdmin]);
 
-    // Efeito para carregar pontos na montagem e quando user/isAdmin/searchQuery mudam
     useEffect(() => {
-        // Debounce para a busca: só carrega após um pequeno atraso, otimizando requisições
-        const handler = setTimeout(() => {
-            carregarPontos(searchQuery);
-        }, 300); // Atraso de 300ms
-
-        return () => {
-            clearTimeout(handler); // Limpa o timeout se o componente for desmontado ou searchQuery mudar novamente
-        };
-    }, [user, isAdmin, searchQuery, carregarPontos]); // Adicionado searchQuery e carregarPontos como dependências
+        carregarPontos();
+    }, [carregarPontos]);
 
     // Criar/Atualizar ponto
     const handleSubmit = async (e: React.FormEvent) => {
@@ -104,13 +112,11 @@ export default function PontoSimples() {
 
             if (editando) {
                 await pontoAPI.atualizarPonto(editando.id, form);
-                console.log('✅ Ponto atualizado');
             } else {
                 await pontoAPI.criarPonto(form, user.id);
-                console.log('✅ Ponto criado');
             }
 
-            await carregarPontos(searchQuery); // Recarrega com o filtro atual
+            await carregarPontos();
             fecharModal();
             
         } catch (err: any) {
@@ -118,59 +124,6 @@ export default function PontoSimples() {
         } finally {
             setSubmitting(false);
         }
-    };
-
-    // Aprovar ponto
-    const aprovar = async (id: number) => {
-        if (!user) return;
-        
-        try {
-            setError('');
-            await pontoAPI.aprovarPonto(id, user.id);
-            await carregarPontos(searchQuery); // Recarrega com o filtro atual
-            console.log('✅ Ponto aprovado');
-        } catch (err: any) {
-            setError(err.message || 'Erro ao aprovar');
-        }
-    };
-
-    // Marcar como pago
-    const marcarPago = async (id: number) => {
-        try {
-            setError('');
-            await pontoAPI.marcarPago(id);
-            await carregarPontos(searchQuery); // Recarrega com o filtro atual
-            console.log('✅ Marcado como pago');
-        } catch (err: any) {
-            setError(err.message || 'Erro ao marcar como pago');
-        }
-    };
-
-    // Deletar ponto
-    const deletar = async (id: number) => {
-        if (!confirm('Tem certeza que deseja deletar este registro? Esta ação é irreversível.')) return; // Mensagem mais clara
-        
-        try {
-            setError('');
-            await pontoAPI.deletarPonto(id);
-            await carregarPontos(searchQuery); // Recarrega com o filtro atual
-            console.log('✅ Ponto deletado');
-        } catch (err: any) {
-            setError(err.message || 'Erro ao deletar');
-        }
-    };
-
-    // Abrir modal para editar
-    const editar = (ponto: PontoMensal) => {
-        setEditando(ponto);
-        setForm({
-            mes: ponto.mes,
-            ano: ponto.ano,
-            dias_trabalhados: ponto.dias_trabalhados,
-            horas_extras: ponto.horas_extras,
-            observacoes: ponto.observacoes || ''
-        });
-        setShowModal(true);
     };
 
     // Fechar modal
@@ -185,6 +138,173 @@ export default function PontoSimples() {
             observacoes: ''
         });
     };
+
+    // Abrir modal para editar
+    const editar = (ponto: PontoMensal) => {
+        setEditando(ponto);
+        setForm({
+            mes: ponto.mes,
+            ano: ponto.ano,
+            dias_trabalhados: ponto.dias_trabalhados,
+            horas_extras: ponto.horas_extras,
+            observacoes: ponto.observacoes || ''
+        });
+        setShowModal(true);
+        setShowRegistrosDialog(false); // Fechar dialog de registros
+    };
+
+    // Aprovar ponto
+    const aprovar = async (id: number) => {
+        if (!user) return;
+        
+        try {
+            setError('');
+            await pontoAPI.aprovarPonto(id, user.id);
+            await carregarPontos();
+        } catch (err: any) {
+            setError(err.message || 'Erro ao aprovar');
+        }
+    };
+
+    // Marcar como pago
+    const marcarPago = async (id: number) => {
+        try {
+            setError('');
+            await pontoAPI.marcarPago(id);
+            await carregarPontos();
+        } catch (err: any) {
+            setError(err.message || 'Erro ao marcar como pago');
+        }
+    };
+
+    // Deletar ponto
+    const deletar = async (id: number) => {
+        if (!confirm('Tem certeza que deseja deletar este registro? Esta ação é irreversível.')) return;
+        
+        try {
+            setError('');
+            await pontoAPI.deletarPonto(id);
+            await carregarPontos();
+        } catch (err: any) {
+            setError(err.message || 'Erro ao deletar');
+        }
+    };
+
+    // Dados filtrados
+    const getDadosFiltrados = () => {
+        let dadosFiltrados = pontos;
+        
+        // Filtrar por funcionário se admin selecionou um específico
+        if (isAdmin && selectedFuncionario) {
+            dadosFiltrados = dadosFiltrados.filter(p => p.funcionario.nomecompleto === selectedFuncionario);
+        }
+        
+        // Se não é admin, só mostra dados do próprio usuário
+        if (!isAdmin) {
+            dadosFiltrados = dadosFiltrados.filter(p => p.funcionario.id === user?.id);
+        }
+
+        // Filtrar por mês/ano se especificado
+        if (selectedMes && selectedAno) {
+            dadosFiltrados = dadosFiltrados.filter(p => p.mes === selectedMes && p.ano === selectedAno);
+        }
+
+        return dadosFiltrados;
+    };
+
+    // Download PDF individual
+    const downloadPDF = (ponto: PontoMensal) => {
+        PDFGenerator.gerarPontoPDF(ponto);
+    };
+
+    // Download CSV dos registros filtrados
+    const downloadCSV = () => {
+        const dadosFiltrados = getDadosFiltrados();
+        
+        if (dadosFiltrados.length === 0) {
+            setError('Nenhum dado para download no período selecionado');
+            return;
+        }
+
+        const csvData = dadosFiltrados.map(ponto => ({
+            'Funcionário': ponto.funcionario.nomecompleto,
+            'Cargo': ponto.funcionario.cargo,
+            'Mês': getMesNome(ponto.mes),
+            'Ano': ponto.ano,
+            'Dias Trabalhados': ponto.dias_trabalhados,
+            'Horas Normais': ponto.horas_normais,
+            'Horas Extras': ponto.horas_extras,
+            'Total Horas': ponto.total_horas,
+            'Status': ponto.status,
+            'Observações': ponto.observacoes || '',
+            'Aprovado Por': ponto.aprovado_por?.nomecompleto || '',
+            'Data Aprovação': ponto.data_aprovacao ? new Date(ponto.data_aprovacao).toLocaleDateString('pt-PT') : ''
+        }));
+
+        const csvContent = [
+            Object.keys(csvData[0]).join(','),
+            ...csvData.map(row => Object.values(row).map(val => `"${val}"`).join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pontos_${getMesNome(selectedMes)}_${selectedAno}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+    };
+
+    // Processar dados para gráficos
+    const processarDadosGrafico = () => {
+        const dadosFiltrados = getDadosFiltrados();
+
+        // Agrupar por mês/ano e somar horas
+        const dadosAgrupados = dadosFiltrados.reduce((acc, ponto) => {
+            const chave = `${getMesNome(ponto.mes)} ${ponto.ano}`;
+            
+            if (!acc[chave]) {
+                acc[chave] = {
+                    mes: chave,
+                    horasNormais: 0,
+                    horasExtras: 0,
+                    totalHoras: 0,
+                    diasTrabalhados: 0
+                };
+            }
+            
+            acc[chave].horasNormais += ponto.horas_normais;
+            acc[chave].horasExtras += ponto.horas_extras;
+            acc[chave].totalHoras += ponto.total_horas;
+            acc[chave].diasTrabalhados += ponto.dias_trabalhados;
+            
+            return acc;
+        }, {} as Record<string, any>);
+
+        return Object.values(dadosAgrupados);
+    };
+
+    // Dados para gráfico de status
+    const processarDadosStatus = () => {
+        const dadosFiltrados = getDadosFiltrados();
+
+        const contadores = dadosFiltrados.reduce((acc, ponto) => {
+            acc[ponto.status] = (acc[ponto.status] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>);
+
+        return [
+            { name: 'Pendentes', value: contadores.pendente || 0, color: '#F59E0B' },
+            { name: 'Aprovados', value: contadores.aprovado || 0, color: '#10B981' },
+            { name: 'Pagos', value: contadores.pago || 0, color: '#3B82F6' }
+        ];
+    };
+
+    // Lista de funcionários únicos
+    const funcionarios = [...new Set(pontos.map(p => p.funcionario.nomecompleto))];
+
+    // Anos disponíveis
+    const anosDisponiveis = [...new Set(pontos.map(p => p.ano))].sort((a, b) => b - a);
 
     // Utils
     const getMesNome = (mes: number) => {
@@ -209,224 +329,268 @@ export default function PontoSimples() {
         }
     };
 
-    if (loading) return <Loading title="Carregando pontos..." />;
+    // Calcular totais
+    const calcularTotais = () => {
+        const dadosFiltrados = getDadosFiltrados();
+
+        return {
+            totalRegistros: dadosFiltrados.length,
+            totalHoras: dadosFiltrados.reduce((acc, p) => acc + p.total_horas, 0),
+            totalHorasExtras: dadosFiltrados.reduce((acc, p) => acc + p.horas_extras, 0),
+            pendentes: dadosFiltrados.filter(p => p.status === 'pendente').length
+        };
+    };
+
+    const dadosGrafico = processarDadosGrafico();
+    const dadosStatus = processarDadosStatus();
+    const totais = calcularTotais();
+
+    if (loading) return <Loading title="Carregando dashboard..." />;
 
     return (
-        <div className="p-6 space-y-6">
-            
-            {/* Header */}
-            <PageHeader
-                title="Controle de Ponto Mensal"
-                subtitle={isAdmin ? 'Gerencie registros dos funcionários' : 'Seus registros mensais'}
-                icon={Calendar}
-                buttonText="Novo Registro"
-                onButtonClick={() => setShowModal(true)}
-            />
-
-            {/* Alert de Erro */}
-            {error && (
-                <Alert
-                    type="error"
-                    title="Erro"
-                    description={error}
-                    dismissible
-                    onDismiss={() => setError('')}
-                />
-            )}
-
-            {/* Input de Busca (apenas para administradores) */}
-            {isAdmin && (
-                <div className="relative mb-6">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                        type="text"
-                        placeholder="Buscar por nome do funcionário..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500 shadow-sm"
-                    />
-                </div>
-            )}
-
-            {/* Stats rápidas */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white p-4 rounded-lg border">
-                    <div className="text-2xl font-bold text-gray-900">{pontos.length}</div>
-                    <div className="text-sm text-gray-600">Total Registros</div>
-                </div>
-                <div className="bg-white p-4 rounded-lg border">
-                    <div className="text-2xl font-bold text-yellow-600">
-                        {pontos.filter(p => p.status === 'pendente').length}
-                    </div>
-                    <div className="text-sm text-gray-600">Pendentes</div>
-                </div>
-                <div className="bg-white p-4 rounded-lg border">
-                    <div className="text-2xl font-bold text-green-600">
-                        {pontos.filter(p => p.status === 'aprovado').length}
-                    </div>
-                    <div className="text-sm text-gray-600">Aprovados</div>
-                </div>
-                <div className="bg-white p-4 rounded-lg border">
-                    <div className="text-2xl font-bold text-blue-600">
-                        {pontos.filter(p => p.status === 'pago').length}
-                    </div>
-                    <div className="text-sm text-gray-600">Pagos</div>
-                </div>
-            </div>
-
-            {/* Lista de Pontos */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="h-full lg:fixed lg:top-20 lg:left-0 lg:lg:left-64 lg:right-0 lg:bottom-0 bg-white overflow-hidden">
+            <div className="h-full flex flex-col">
                 
-                {pontos.length === 0 && !loading && (
-                    <div className="md:col-span-3 text-center py-10 bg-white rounded-lg border text-gray-500">
-                        Nenhum registro de ponto encontrado.
-                        {isAdmin && searchQuery && ` para o termo "${searchQuery}".`}
+                {/* Header */}
+                <div className="flex-shrink-0 p-3 sm:p-4 border-b border-gray-200">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between space-y-3 lg:space-y-0">
+                        <div className="flex items-center space-x-2 sm:space-x-3">
+                            <div className="p-2 bg-primary-100 rounded-lg">
+                                <BarChart3 className="w-5 h-5 sm:w-6 h-6 text-primary-600" />
+                            </div>
+                            <div>
+                                <h1 className="text-lg sm:text-xl font-bold text-gray-900">Dashboard de Ponto</h1>
+                                <p className="text-xs sm:text-sm text-gray-600">
+                                    {isAdmin ? 'Análise de todos os funcionários' : 'Suas horas trabalhadas'}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div className="flex flex-wrap items-center gap-2">
+                            {/* Botão Novo Registro */}
+                            <Button
+                                onClick={() => setShowModal(true)}
+                                size="sm"
+                                className="bg-primary-500 hover:bg-primary-600"
+                            >
+                                <Plus className="w-4 h-4 mr-1" />
+                                Novo
+                            </Button>
+
+                            {/* Filtros */}
+                            <div className="flex items-center space-x-2">
+                                <select
+                                    value={selectedMes}
+                                    onChange={(e) => setSelectedMes(Number(e.target.value))}
+                                    className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-200"
+                                >
+                                    <option value={0}>Todos os meses</option>
+                                    {Array.from({length: 12}, (_, i) => (
+                                        <option key={i+1} value={i+1}>
+                                            {getMesNome(i+1)}
+                                        </option>
+                                    ))}
+                                </select>
+
+                                <select
+                                    value={selectedAno}
+                                    onChange={(e) => setSelectedAno(Number(e.target.value))}
+                                    className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-200"
+                                >
+                                    <option value={0}>Todos os anos</option>
+                                    {anosDisponiveis.map(ano => (
+                                        <option key={ano} value={ano}>{ano}</option>
+                                    ))}
+                                </select>
+
+                                {isAdmin && (
+                                    <select
+                                        value={selectedFuncionario}
+                                        onChange={(e) => setSelectedFuncionario(e.target.value)}
+                                        className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-200"
+                                    >
+                                        <option value="">Todos os funcionários</option>
+                                        {funcionarios.map(nome => (
+                                            <option key={nome} value={nome}>{nome}</option>
+                                        ))}
+                                    </select>
+                                )}
+                            </div>
+
+                            {/* Downloads */}
+                            <Button
+                                onClick={downloadCSV}
+                                variant="secondary"
+                                size="sm"
+                                disabled={getDadosFiltrados().length === 0}
+                            >
+                                <FileDown className="w-4 h-4 mr-1" />
+                                CSV
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Alert de Erro */}
+                {error && (
+                    <div className="flex-shrink-0 p-3 sm:p-4">
+                        <Alert
+                            type="error"
+                            title="Erro"
+                            description={error}
+                            dismissible
+                            onDismiss={() => setError('')}
+                        />
                     </div>
                 )}
 
-                {pontos.map((ponto) => (
-                    <div key={ponto.id} className="bg-white rounded-xl border p-6 shadow-sm hover:shadow-md transition-shadow">
-                        
-                        {/* Header */}
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center space-x-2">
-                                <Calendar className="w-5 h-5 text-primary-600" />
-                                <h3 className="text-lg font-semibold">
-                                    {getMesNome(ponto.mes)} {ponto.ano}
-                                </h3>
-                            </div>
-                            <div className={`px-2 py-1 rounded-full text-xs font-medium border flex items-center space-x-1 ${getStatusColor(ponto.status)}`}>
-                                {getStatusIcon(ponto.status)}
-                                <span>{ponto.status.toUpperCase()}</span>
-                            </div>
+                {/* Stats */}
+                <div className="flex-shrink-0 p-3 sm:p-4 border-b border-gray-100">
+                    <div className="grid grid-cols-4 gap-2">
+                        <div className="bg-white p-2 rounded border text-center">
+                            <div className="text-base font-bold text-gray-900">{totais.totalRegistros}</div>
+                            <div className="text-xs text-gray-600">Registros</div>
                         </div>
-
-                        {/* Funcionário (Admin) */}
-                        {isAdmin && (
-                            <div className="flex items-center space-x-2 mb-3 text-sm text-gray-600">
-                                <Users className="w-4 h-4" />
-                                <span>{ponto.funcionario.nomecompleto}</span>
-                                <span className="text-xs bg-gray-100 px-2 py-1 rounded">
-                                    {ponto.funcionario.cargo}
-                                </span>
-                            </div>
-                        )}
-
-                        {/* Stats */}
-                        <div className="space-y-2 mb-4">
-                            <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Dias trabalhados:</span>
-                                <span className="font-medium">{ponto.dias_trabalhados} dias</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Horas normais:</span>
-                                <span className="font-medium">{ponto.horas_normais}h</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Horas extras:</span>
-                                <span className="font-medium text-orange-600">{ponto.horas_extras}h</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Horário padrão:</span>
-                                <span className="font-medium">09:00 - 18:00</span>
-                            </div>
-                            <div className="flex justify-between text-base font-semibold pt-2 border-t">
-                                <span>Total horas:</span>
-                                <span className="text-primary-600">{ponto.total_horas}h</span>
-                            </div>
+                        <div className="bg-white p-2 rounded border text-center">
+                            <div className="text-base font-bold text-blue-600">{totais.totalHoras}h</div>
+                            <div className="text-xs text-gray-600">Total Horas</div>
                         </div>
-
-                        {/* Observações */}
-                        {ponto.observacoes && (
-                            <div className="mb-4">
-                                <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
-                                    {ponto.observacoes}
-                                </p>
-                            </div>
-                        )}
-
-                        {/* Aprovação */}
-                        {ponto.aprovado_por && ponto.data_aprovacao && (
-                            <div className="mb-4 text-xs text-gray-500">
-                                Aprovado por {ponto.aprovado_por.nomecompleto} em{' '}
-                                {new Date(ponto.data_aprovacao).toLocaleDateString('pt-PT')}
-                            </div>
-                        )}
-
-                        {/* Ações */}
-                        <div className="flex space-x-2">
-                            {/* Aprovar */}
-                            {isAdmin && ponto.status === 'pendente' && (
-                                <Button
-                                    onClick={() => aprovar(ponto.id)}
-                                    size="sm"
-                                    className="flex-1"
-                                >
-                                    <CheckCircle className="w-4 h-4 mr-1" />
-                                    Aprovar
-                                </Button>
-                            )}
-
-                            {/* Marcar Pago */}
-                            {isAdmin && ponto.status === 'aprovado' && (
-                                <Button
-                                    onClick={() => marcarPago(ponto.id)}
-                                    size="sm"
-                                    className="flex-1 bg-blue-600 hover:bg-blue-700"
-                                >
-                                    <DollarSign className="w-4 h-4 mr-1" />
-                                    Pagar
-                                </Button>
-                            )}
-
-                            {/* PDF */}
-                            <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => PDFGenerator.gerarPontoPDF(ponto)}
-                                className="flex-1"
-                            >
-                                <Download className="w-4 h-4 mr-1" />
-                                PDF
-                            </Button>
-
-                            {/* Editar */}
-                            {(isAdmin || ponto.status === 'pendente') && (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => editar(ponto)}
-                                >
-                                    <Edit className="w-4 h-4" />
-                                </Button>
-                            )}
-
-                            {/* Deletar */}
-                            {(isAdmin || ponto.status === 'pendente') && (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => deletar(ponto.id)}
-                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </Button>
-                            )}
+                        <div className="bg-white p-2 rounded border text-center">
+                            <div className="text-base font-bold text-orange-600">{totais.totalHorasExtras}h</div>
+                            <div className="text-xs text-gray-600">H. Extras</div>
+                        </div>
+                        <div className="bg-white p-2 rounded border text-center">
+                            <div className="text-base font-bold text-yellow-600">{totais.pendentes}</div>
+                            <div className="text-xs text-gray-600">Pendentes</div>
                         </div>
                     </div>
-                ))}
+                </div>
 
-                {/* Card Adicionar (sempre visível) */}
-                <div 
-                    onClick={() => setShowModal(true)}
-                    className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-primary-400 hover:bg-primary-50 transition-colors min-h-[280px]"
-                >
-                    <Plus className="w-8 h-8 text-gray-400 mb-2" />
-                    <p className="text-gray-600 text-center">Novo Registro</p>
+                {/* Conteúdo Principal - RESPONSIVO */}
+                <div className="flex-1 min-h-0 p-3 sm:p-4">
+                    <div className="h-full flex flex-col compactDesktop:flex-row gap-4 max-w-full">
+                        
+                        {/* Gráfico Principal - RESPONSIVO */}
+                        <div className="flex-1 min-w-0 bg-white rounded-lg border p-4 flex flex-col">
+                            <div className="flex items-center space-x-2 mb-4">
+                                <BarChart3 className="w-5 h-5 text-primary-600" />
+                                <h3 className="text-lg font-semibold text-gray-900">Horas Trabalhadas</h3>
+                            </div>
+                            
+                            {/* Container responsivo para o gráfico */}
+                            <div className="w-full flex-1 flex items-end justify-center">
+                                <div className="w-full h-80 sm:h-96 md:h-[28rem] compactDesktop:h-[32rem] min-[2500px]:h-[60rem]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={dadosGrafico} margin={{ top: 10, right: 30, left: 20, bottom: 80 }}>
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <XAxis 
+                                            dataKey="mes" 
+                                            tick={{ fontSize: 11 }}
+                                            angle={-45}
+                                            textAnchor="end"
+                                            height={60}
+                                            interval={0}
+                                        />
+                                        <YAxis 
+                                            tick={{ fontSize: 11 }}
+                                            width={40}
+                                        />
+                                        <Tooltip 
+                                            formatter={(value: number, name: string) => [
+                                                `${value}h`, 
+                                                name === 'horasNormais' ? 'Horas Normais' : 
+                                                name === 'horasExtras' ? 'Horas Extras' : 'Total'
+                                            ]}
+                                        />
+                                        <Legend 
+                                            verticalAlign="bottom"
+                                            height={36}
+                                            iconType="rect"
+                                            wrapperStyle={{ paddingTop: '20px' }}
+                                        />
+                                        <Bar 
+                                            dataKey="horasNormais" 
+                                            fill="#3B82F6" 
+                                            name="Horas Normais"
+                                            radius={[0, 0, 4, 4]}
+                                        />
+                                        <Bar 
+                                            dataKey="horasExtras" 
+                                            fill="#F59E0B" 
+                                            name="Horas Extras"
+                                            radius={[4, 4, 0, 0]}
+                                        />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                            </div>
+                        </div>
+
+                        {/* Gráfico Status - RESPONSIVO */}
+                        <div className="w-full compactDesktop:w-80 customXl:w-96 bg-white rounded-lg border p-4 flex flex-col compactDesktop:h-fit">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center space-x-2">
+                                    <PieChart className="w-5 h-5 text-primary-600" />
+                                    <h3 className="text-lg font-semibold text-gray-900">Status</h3>
+                                </div>
+                                
+                                {/* Botão Histórico */}
+                                <Button
+                                    onClick={() => setShowRegistrosDialog(true)}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-primary-600 hover:text-primary-700 hover:bg-primary-50"
+                                >
+                                    <History className="w-4 h-4 mr-1" />
+                                    Histórico
+                                </Button>
+                            </div>
+                            
+                            {/* Container responsivo para gráfico de pizza */}
+                            <div className="w-full h-40 compactDesktop:h-48">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <RechartsPieChart>
+                                        <Tooltip 
+                                            formatter={(value: number) => [`${value} registros`, 'Quantidade']}
+                                        />
+                                        <Pie
+                                            data={dadosStatus}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius="25%"
+                                            outerRadius="75%"
+                                            paddingAngle={3}
+                                            dataKey="value"
+                                        >
+                                            {dadosStatus.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                            ))}
+                                        </Pie>
+                                    </RechartsPieChart>
+                                </ResponsiveContainer>
+                            </div>
+
+                            {/* Legenda do Status */}
+                            <div className="mt-3 space-y-1">
+                                {dadosStatus.map((item) => (
+                                    <div key={item.name} className="flex items-center justify-between text-sm">
+                                        <div className="flex items-center space-x-2">
+                                            <div 
+                                                className="w-3 h-3 rounded-full flex-shrink-0" 
+                                                style={{ backgroundColor: item.color }}
+                                            />
+                                            <span className="text-gray-700">{item.name}</span>
+                                        </div>
+                                        <span className="font-medium">{item.value}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* Modal */}
+            {/* Modal Criar/Editar Ponto */}
             <Modal
                 isOpen={showModal}
                 onClose={fecharModal}
@@ -545,6 +709,22 @@ export default function PontoSimples() {
                     </div>
                 </form>
             </Modal>
+
+            {/* Dialog de Registros */}
+            <RegistrosDialog
+                isOpen={showRegistrosDialog}
+                onClose={() => setShowRegistrosDialog(false)}
+                registros={getDadosFiltrados()}
+                isAdmin={isAdmin}
+                onAprovar={aprovar}
+                onMarcarPago={marcarPago}
+                onEditar={editar}
+                onDeletar={deletar}
+                onDownloadPDF={downloadPDF}
+                getMesNome={getMesNome}
+                getStatusColor={getStatusColor}
+                getStatusIcon={getStatusIcon}
+            />
         </div>
     );
 }

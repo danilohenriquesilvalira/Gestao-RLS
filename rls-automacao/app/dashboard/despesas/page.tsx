@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react'; // Adicionado useMemo
+import React, { useState, useEffect, useMemo } from 'react';
 import { api, Despesa } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -19,24 +19,19 @@ import {
     DollarSign,
     Users,
     ArrowUpRight,
-    ChevronLeft, // Ícones para paginação
-    ChevronRight
+    ChevronLeft,
+    ChevronRight,
+    Search,
+    X
 } from 'lucide-react';
 
-// Componentes UI reutilizáveis
 import Loading from '@/components/ui/Loading';
-import EmptyState from '@/components/ui/EmptyState';
-import StatsCard from '@/components/ui/StatsCard';
-import PageHeader from '@/components/ui/PageHeader';
-import SearchFilterBar from '@/components/ui/SearchFilterBar';
 import Alert from '@/components/ui/Alert';
 import Modal from '@/components/ui/Modal';
-import PageFooter from '@/components/ui/PageFooter';
 import Button from '@/components/ui/Button';
 
 type StatusDespesa = 'todas' | 'pendente' | 'aprovada' | 'rejeitada';
 
-// Utilitários para verificação segura
 const safeString = (value: any): string => {
     if (value === null || value === undefined) return '';
     return String(value);
@@ -57,13 +52,34 @@ export default function DespesasPage() {
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [selectedDespesa, setSelectedDespesa] = useState<Despesa | null>(null);
     const [statusFilter, setStatusFilter] = useState<StatusDespesa>('todas');
-    const [searchTerm, setSearchTerm] = useState('');
-
-    // Estados para Paginação
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 6; // Definido para 6 cartões por página
+    const [selectedFuncionario, setSelectedFuncionario] = useState<string>('');
+    const [selectedMes, setSelectedMes] = useState<number>(0);
+    const [selectedAno, setSelectedAno] = useState<number>(0);
 
-    // Form state para nova despesa
+    // Cards responsivos baseados na resolução
+    const [cardsPerPage, setCardsPerPage] = useState(6);
+
+    // Detecta tamanho da tela e ajusta cards por página
+    useEffect(() => {
+        const updateCardsPerPage = () => {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            
+            if (width <= 1528 && height <= 834) {
+                setCardsPerPage(6); // 2 fileiras x 3 colunas
+            } else if (width > 1900) {
+                setCardsPerPage(15); // 3 fileiras x 5 colunas
+            } else {
+                setCardsPerPage(12); // 3 fileiras x 4 colunas
+            }
+        };
+
+        updateCardsPerPage();
+        window.addEventListener('resize', updateCardsPerPage);
+        return () => window.removeEventListener('resize', updateCardsPerPage);
+    }, []);
+
     const [novaDespesa, setNovaDespesa] = useState({
         descricao: '',
         valor: '',
@@ -84,32 +100,25 @@ export default function DespesasPage() {
             setLoading(true);
             setError('');
 
-            console.log('🔄 Carregando despesas...');
             const response = await api.getDespesas();
             let todasDespesas = response.data || [];
 
-            // Se não for admin, filtrar apenas próprias despesas
             if (!isAdmin && user) {
                 todasDespesas = todasDespesas.filter((d: Despesa) =>
                     d.users_permissions_user?.id === user.id
                 );
             }
 
-            // Ordenar despesas pela data_despesa, da mais recente para a mais antiga
             todasDespesas.sort((a, b) => {
                 const dateA = new Date(safeString(a.data_despesa)).getTime();
                 const dateB = new Date(safeString(b.data_despesa)).getTime();
-                return dateB - dateA; // Para ordem decrescente (mais recente primeiro)
+                return dateB - dateA;
             });
 
-
             setDespesas(todasDespesas);
-            console.log('✅ Despesas carregadas:', todasDespesas.length);
-
         } catch (err: any) {
             const errorMessage = safeString(err?.message || 'Erro desconhecido');
             setError(errorMessage);
-            console.error('❌ Erro ao carregar despesas:', err);
         } finally {
             setLoading(false);
         }
@@ -128,9 +137,7 @@ export default function DespesasPage() {
 
             let comprovantivoId = null;
 
-            // Upload do comprovativo se existir
             if (novaDespesa.comprovativo) {
-                console.log('📤 Fazendo upload do comprovativo...');
                 const uploadResult = await api.uploadFile(novaDespesa.comprovativo);
                 if (uploadResult && uploadResult.id) {
                     comprovantivoId = uploadResult.id;
@@ -139,7 +146,6 @@ export default function DespesasPage() {
                 }
             }
 
-            // Criar despesa
             const despesaData = {
                 descricao: safeString(novaDespesa.descricao),
                 valor: safeNumber(novaDespesa.valor),
@@ -151,10 +157,8 @@ export default function DespesasPage() {
                 ...(comprovantivoId && { comprovativo: comprovantivoId })
             };
 
-            console.log('➕ Criando despesa:', despesaData);
             await api.createDespesa(despesaData);
 
-            // Reset form
             setNovaDespesa({
                 descricao: '',
                 valor: '',
@@ -165,14 +169,10 @@ export default function DespesasPage() {
             });
 
             setShowCreateModal(false);
-            await fetchDespesas(); // Recarrega as despesas para incluir a nova e reordenar
-
-            console.log('✅ Despesa criada com sucesso!');
-
+            await fetchDespesas();
         } catch (err: any) {
             const errorMessage = safeString(err?.message || 'Erro ao criar despesa');
             setError(errorMessage);
-            console.error('❌ Erro ao criar despesa:', err);
         } finally {
             setLoading(false);
         }
@@ -181,18 +181,12 @@ export default function DespesasPage() {
     const handleStatusChange = async (despesaId: number, novoStatus: 'aprovada' | 'rejeitada', observacoes?: string) => {
         try {
             setLoading(true);
-
-            console.log(`🔄 Alterando status da despesa ${despesaId} para ${novoStatus}`);
             await api.updateDespesaStatus(despesaId, novoStatus, observacoes);
             await fetchDespesas();
             setShowDetailsModal(false);
-
-            console.log('✅ Status alterado com sucesso!');
-
         } catch (err: any) {
             const errorMessage = safeString(err?.message || 'Erro ao alterar status');
             setError(errorMessage);
-            console.error('❌ Erro ao alterar status:', err);
         } finally {
             setLoading(false);
         }
@@ -228,9 +222,9 @@ export default function DespesasPage() {
     const getStatusIcon = (status: any) => {
         const statusStr = safeString(status);
         switch (statusStr) {
-            case 'aprovada': return <CheckCircle className="w-5 h-5 text-green-600" />;
-            case 'rejeitada': return <XCircle className="w-5 h-5 text-red-600" />;
-            default: return <Clock className="w-5 h-5 text-yellow-600" />;
+            case 'aprovada': return <CheckCircle className="w-4 h-4 text-green-600" />;
+            case 'rejeitada': return <XCircle className="w-4 h-4 text-red-600" />;
+            default: return <Clock className="w-4 h-4 text-yellow-600" />;
         }
     };
 
@@ -243,304 +237,324 @@ export default function DespesasPage() {
         }
     };
 
-    // Filtro e Paginação
-    const filteredAndSortedDespesas = useMemo(() => {
+    const filteredDespesas = useMemo(() => {
         return despesas.filter((despesa) => {
             const despesaStatus = safeString(despesa?.status || '');
             const matchStatus = statusFilter === 'todas' || despesaStatus === statusFilter;
 
-            const descricaoSafe = safeString(despesa?.descricao || '').toLowerCase();
-            const categoriaSafe = safeString(despesa?.categoria || '').toLowerCase();
-            const searchTermSafe = safeString(searchTerm || '').toLowerCase();
+            const matchFuncionario = !selectedFuncionario || 
+                (despesa.users_permissions_user?.nomecompleto === selectedFuncionario);
 
-            const matchSearch = !searchTermSafe ||
-                descricaoSafe.includes(searchTermSafe) ||
-                categoriaSafe.includes(searchTermSafe);
+            let matchPeriodo = true;
+            if (selectedMes || selectedAno) {
+                const despesaDate = new Date(despesa.data_despesa);
+                const despesaMes = despesaDate.getMonth() + 1;
+                const despesaAno = despesaDate.getFullYear();
+                
+                matchPeriodo = (!selectedMes || despesaMes === selectedMes) &&
+                             (!selectedAno || despesaAno === selectedAno);
+            }
 
-            return matchStatus && matchSearch;
+            return matchStatus && matchFuncionario && matchPeriodo;
         });
-    }, [despesas, statusFilter, searchTerm]);
+    }, [despesas, statusFilter, selectedFuncionario, selectedMes, selectedAno]);
 
-    // Lógica de Paginação
-    const totalPages = Math.ceil(filteredAndSortedDespesas.length / itemsPerPage);
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const paginatedDespesas = filteredAndSortedDespesas.slice(startIndex, endIndex);
+    const funcionarios = [...new Set(despesas.map(d => d.users_permissions_user?.nomecompleto).filter(Boolean))];
+    const anosDisponiveis = [...new Set(despesas.map(d => new Date(d.data_despesa).getFullYear()))].sort((a, b) => b - a);
 
-    const handleNextPage = () => {
-        if (currentPage < totalPages) {
-            setCurrentPage(currentPage + 1);
-        }
+    const getMesNome = (mes: number) => {
+        const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 
+                      'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        return meses[mes - 1] || 'N/A';
     };
 
-    const handlePreviousPage = () => {
-        if (currentPage > 1) {
-            setCurrentPage(currentPage - 1);
-        }
+    // Paginação - SIMPLES E DIRETO
+    const totalPages = Math.ceil(filteredDespesas.length / cardsPerPage);
+    const startIndex = (currentPage - 1) * cardsPerPage;
+    const paginatedDespesas = filteredDespesas.slice(startIndex, startIndex + cardsPerPage);
+
+    const handleFilterChange = (value: StatusDespesa) => {
+        setStatusFilter(value);
+        setCurrentPage(1);
     };
 
-    // Estatísticas (agora baseadas nas despesas filtradas ANTES da paginação)
-    const getStats = () => {
-        const total = filteredAndSortedDespesas.length;
-        const valorTotal = filteredAndSortedDespesas.reduce((acc, despesa) => acc + safeNumber(despesa.valor), 0);
-        const pendentes = filteredAndSortedDespesas.filter(d => d.status === 'pendente').length;
-        const aprovadas = filteredAndSortedDespesas.filter(d => d.status === 'aprovada').length;
+    // Reset página quando filtros mudarem
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [selectedFuncionario, selectedMes, selectedAno, cardsPerPage]);
 
-        return { total, valorTotal, pendentes, aprovadas };
+    const stats = {
+        total: filteredDespesas.length,
+        valorTotal: filteredDespesas.reduce((acc, despesa) => acc + safeNumber(despesa.valor), 0),
+        pendentes: filteredDespesas.filter(d => d.status === 'pendente').length,
+        aprovadas: filteredDespesas.filter(d => d.status === 'aprovada').length
     };
-
-    const stats = getStats();
-
-    // Filter options para o SearchFilterBar
-    const filterOptions = [
-        { value: 'todas', label: 'Todas' },
-        { value: 'pendente', label: 'Pendentes' },
-        { value: 'aprovada', label: 'Aprovadas' },
-        { value: 'rejeitada', label: 'Rejeitadas' }
-    ];
 
     if (loading && despesas.length === 0) {
-        return <Loading title="A carregar despesas..." />;
+        return <Loading title="Carregando despesas..." />;
     }
 
     return (
-        <main className="h-full bg-white rounded-xl shadow-md p-6">
-            <div className="max-w-full mx-auto space-y-8">
-
+        <div className="h-full lg:fixed lg:top-20 lg:left-0 lg:lg:left-64 lg:right-0 lg:bottom-0 bg-white overflow-hidden">
+            <div className="h-full flex flex-col">
+                
                 {/* Header */}
-                <PageHeader
-                    title="Gestão de Despesas"
-                    subtitle={isAdmin ? 'Supervisione todas as despesas da empresa' : 'Gerencie suas despesas pessoais'}
-                    icon={Receipt}
-                    stats={`Encontradas: ${stats.total} despesas • Total: ${formatCurrency(stats.valorTotal)}`}
-                    buttonText="Nova Despesa"
-                    buttonIcon={Plus}
-                    onButtonClick={() => setShowCreateModal(true)}
-                />
+                <div className="flex-shrink-0 p-3 sm:p-4 border-b border-gray-200">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between space-y-3 lg:space-y-0">
+                        <div className="flex items-center space-x-2 sm:space-x-3">
+                            <div className="p-2 bg-primary-100 rounded-lg">
+                                <Receipt className="w-5 h-5 sm:w-6 h-6 text-primary-600" />
+                            </div>
+                            <div>
+                                <h1 className="text-lg sm:text-xl font-bold text-gray-900">Despesas</h1>
+                                <p className="text-xs sm:text-sm text-gray-600">{stats.total} despesas • {formatCurrency(stats.valorTotal)}</p>
+                            </div>
+                        </div>
+                        
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Button
+                                onClick={() => setShowCreateModal(true)}
+                                size="sm"
+                                className="bg-primary-500 hover:bg-primary-600"
+                            >
+                                <Plus className="w-4 h-4 mr-1" />
+                                Nova
+                            </Button>
 
-                {/* Estatísticas Cards */}
-                <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
-                    <StatsCard
-                        title="Total Despesas"
-                        value={stats.total}
-                        icon={Receipt}
-                        iconBg="bg-primary-500"
-                        bg="bg-primary-50"
-                        change="+12%" // Este dado é estático, considere torná-lo dinâmico se tiver a fonte
-                        changePositive={true}
-                    />
-                    <StatsCard
-                        title="Valor Total"
-                        value={stats.valorTotal}
-                        icon={DollarSign}
-                        isCurrency={true}
-                        iconBg="bg-green-500"
-                        bg="bg-green-50"
-                        change="+8%" // Este dado é estático, considere torná-lo dinâmico se tiver a fonte
-                        changePositive={true}
-                    />
-                    <StatsCard
-                        title="Pendentes"
-                        value={stats.pendentes}
-                        icon={Clock}
-                        iconBg="bg-yellow-500"
-                        bg="bg-yellow-50"
-                        change="-5%" // Este dado é estático, considere torná-lo dinâmico se tiver a fonte
-                        changePositive={false}
-                    />
-                    <StatsCard
-                        title="Aprovadas"
-                        value={stats.aprovadas}
-                        icon={CheckCircle}
-                        iconBg="bg-green-500"
-                        bg="bg-green-50"
-                        change="+15%" // Este dado é estático, considere torná-lo dinâmico se tiver a fonte
-                        changePositive={true}
-                    />
-                </section>
-
-                {/* Alerta de Despesas Pendentes (Admin) */}
-                {isAdmin && stats.pendentes > 0 && (
-                    <Alert
-                        type="warning"
-                        title={`${stats.pendentes} ${stats.pendentes === 1 ? 'despesa pendente' : 'despesas pendentes'} aguardam sua aprovação.`}
-                        description="Revise-as para manter o fluxo de trabalho em dia."
-                        action={{
-                            label: "Ver despesas pendentes",
-                            onClick: () => setStatusFilter('pendente')
-                        }}
-                    />
-                )}
-
-                {/* Filtros */}
-                <SearchFilterBar
-                    searchTerm={searchTerm}
-                    onSearchChange={setSearchTerm}
-                    searchPlaceholder="Buscar despesas..."
-                    filterValue={statusFilter}
-                    onFilterChange={(value) => {
-                        setStatusFilter(value as StatusDespesa);
-                        setCurrentPage(1); // Resetar para a primeira página ao mudar o filtro
-                    }}
-                    filterOptions={filterOptions}
-                    filterLabel="Status:"
-                    onClear={() => {
-                        setSearchTerm('');
-                        setStatusFilter('todas');
-                        setCurrentPage(1); // Resetar para a primeira página ao limpar
-                    }}
-                />
-
-                {/* Error */}
-                {error && (
-                    <Alert
-                        type="error"
-                        title="Erro"
-                        description={error}
-                        dismissible={true}
-                        onDismiss={() => setError('')}
-                    />
-                )}
-
-                {/* Grid de Despesas */}
-                <section className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
-                    {paginatedDespesas.length === 0 ? (
-                        <EmptyState
-                            icon={Receipt}
-                            title="Nenhuma despesa encontrada"
-                            description={
-                                searchTerm || statusFilter !== 'todas'
-                                    ? 'Tente ajustar os filtros de busca para encontrar suas despesas'
-                                    : 'Comece criando sua primeira despesa'
-                            }
-                            buttonText={!searchTerm && statusFilter === 'todas' ? "Criar Primeira Despesa" : undefined}
-                            onButtonClick={!searchTerm && statusFilter === 'todas' ? () => setShowCreateModal(true) : undefined}
-                            showButton={!searchTerm && statusFilter === 'todas'}
-                        />
-                    ) : (
-                        paginatedDespesas.map((despesa) => {
-                            const descricaoSegura = safeString(despesa?.descricao || 'Sem descrição');
-                            const valorSeguro = safeNumber(despesa?.valor || 0);
-                            const observacoesSeguras = safeString(despesa?.observacoes || '');
-                            const statusSeguro = safeString(despesa?.status || 'pendente');
-                            const categoriaSegura = safeString(despesa?.categoria || 'outros');
-
-                            return (
-                                <div
-                                    key={despesa.id}
-                                    className="bg-white rounded-lg shadow-sm p-6 border border-gray-100 transform transition-all duration-200 hover:scale-[1.02] hover:shadow-md cursor-pointer"
-                                    onClick={() => {
-                                        setSelectedDespesa(despesa);
-                                        setShowDetailsModal(true);
-                                    }}
+                            <div className="flex items-center space-x-2">
+                                <select
+                                    value={selectedMes}
+                                    onChange={(e) => setSelectedMes(Number(e.target.value))}
+                                    className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-200"
                                 >
-                                    {/* Header do Card */}
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div className="flex items-center space-x-3 flex-1 min-w-0">
-                                            <div className="p-2.5 bg-primary-50 rounded-lg border border-primary-100">
-                                                <Receipt className="w-6 h-6 text-primary-600" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="text-sm font-semibold text-gray-900 truncate leading-tight">
-                                                    {descricaoSegura}
-                                                </h3>
-                                                <p className="text-xs text-gray-500 mt-1">
-                                                    {formatDate(despesa.data_despesa)}
-                                                </p>
-                                            </div>
-                                        </div>
+                                    <option value={0}>Todos os meses</option>
+                                    {Array.from({length: 12}, (_, i) => (
+                                        <option key={i+1} value={i+1}>
+                                            {getMesNome(i+1)}
+                                        </option>
+                                    ))}
+                                </select>
 
-                                        <div className="text-right">
-                                            <p className="text-lg font-bold text-gray-900">
-                                                {formatCurrency(valorSeguro)}
-                                            </p>
-                                        </div>
-                                    </div>
+                                <select
+                                    value={selectedAno}
+                                    onChange={(e) => setSelectedAno(Number(e.target.value))}
+                                    className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-200"
+                                >
+                                    <option value={0}>Todos os anos</option>
+                                    {anosDisponiveis.map(ano => (
+                                        <option key={ano} value={ano}>{ano}</option>
+                                    ))}
+                                </select>
 
-                                    {/* Conteúdo do Card */}
-                                    <div className="space-y-4">
+                                <select
+                                    value={statusFilter}
+                                    onChange={(e) => handleFilterChange(e.target.value as StatusDespesa)}
+                                    className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-200"
+                                >
+                                    <option value="todas">Todas</option>
+                                    <option value="pendente">Pendentes</option>
+                                    <option value="aprovada">Aprovadas</option>
+                                    <option value="rejeitada">Rejeitadas</option>
+                                </select>
 
-                                        {/* Categoria e Status */}
-                                        <div className="flex items-center justify-between">
-                                            <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full capitalize">
-                                                {categoriaSegura}
-                                            </span>
-                                            <span className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full border ${getStatusColor(statusSeguro)}`}>
-                                                {getStatusIcon(statusSeguro)}
-                                                <span className="ml-1 capitalize">{statusSeguro}</span>
-                                            </span>
-                                        </div>
+                                {isAdmin && (
+                                    <select
+                                        value={selectedFuncionario}
+                                        onChange={(e) => setSelectedFuncionario(e.target.value)}
+                                        className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-200"
+                                    >
+                                        <option value="">Todos os funcionários</option>
+                                        {funcionarios.map(nome => (
+                                            <option key={nome} value={nome}>{nome}</option>
+                                        ))}
+                                    </select>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-                                        {/* Observações */}
-                                        {observacoesSeguras && (
-                                            <div>
-                                                <p className="text-xs text-gray-600 line-clamp-2">
-                                                    {observacoesSeguras}
-                                                </p>
-                                            </div>
-                                        )}
+                {/* Stats */}
+                <div className="flex-shrink-0 p-3 sm:p-4 border-b border-gray-100">
+                    <div className="grid grid-cols-4 gap-2">
+                        <div className="bg-white p-2 rounded border text-center">
+                            <div className="text-base font-bold text-gray-900">{stats.total}</div>
+                            <div className="text-xs text-gray-600">Total</div>
+                        </div>
+                        <div className="bg-white p-2 rounded border text-center">
+                            <div className="text-base font-bold text-green-600">{stats.aprovadas}</div>
+                            <div className="text-xs text-gray-600">Aprovadas</div>
+                        </div>
+                        <div className="bg-white p-2 rounded border text-center">
+                            <div className="text-base font-bold text-yellow-600">{stats.pendentes}</div>
+                            <div className="text-xs text-gray-600">Pendentes</div>
+                        </div>
+                        <div className="bg-white p-2 rounded border text-center">
+                            <div className="text-base font-bold text-blue-600">{formatCurrency(stats.valorTotal)}</div>
+                            <div className="text-xs text-gray-600">Valor</div>
+                        </div>
+                    </div>
+                </div>
 
-                                        {/* Funcionário (Admin) */}
-                                        {isAdmin && despesa.users_permissions_user && (
-                                            <div className="flex items-center space-x-2 pt-2 border-t border-gray-100">
-                                                <Users className="w-4 h-4 text-gray-400" />
-                                                <span className="text-xs text-gray-600">
-                                                    {safeString(despesa.users_permissions_user?.nomecompleto || 'N/A')}
-                                                </span>
-                                            </div>
-                                        )}
-
-                                        {/* Comprovativo */}
-                                        {despesa.comprovativo && (
-                                            <div className="flex items-center space-x-2 pt-2 border-t border-gray-100">
-                                                <FileText className="w-4 h-4 text-primary-500" />
-                                                <span className="text-xs text-gray-600">Comprovativo anexado</span>
-                                            </div>
-                                        )}
-
-                                        {/* Ação Ver Detalhes */}
-                                        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                                            <span className="text-xs text-gray-500">Clique para ver detalhes</span>
-                                            <ArrowUpRight className="w-4 h-4 text-gray-400" />
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })
-                    )}
-                </section>
-
-                {/* Controles de Paginação */}
-                {totalPages > 1 && (
-                    <div className="flex justify-center items-center space-x-4 mt-8">
-                        <Button
-                            onClick={handlePreviousPage}
-                            disabled={currentPage === 1 || loading}
-                            variant="secondary"
-                            className="flex items-center"
-                        >
-                            <ChevronLeft className="w-4 h-4 mr-2" /> Anterior
-                        </Button>
-                        <span className="text-sm font-medium text-gray-700">
-                            Página {currentPage} de {totalPages}
-                        </span>
-                        <Button
-                            onClick={handleNextPage}
-                            disabled={currentPage === totalPages || loading}
-                            variant="secondary"
-                            className="flex items-center"
-                        >
-                            Próxima <ChevronRight className="w-4 h-4 ml-2" />
-                        </Button>
+                {/* Error Alert */}
+                {error && (
+                    <div className="flex-shrink-0 p-3 sm:p-4">
+                        <Alert
+                            type="error"
+                            title="Erro"
+                            description={error}
+                            dismissible={true}
+                            onDismiss={() => setError('')}
+                        />
                     </div>
                 )}
 
+                {/* Content */}
+                <div className="flex-1 min-h-0 p-3 sm:p-4">
+                    {filteredDespesas.length === 0 ? (
+                        <div className="h-full flex items-center justify-center">
+                            <div className="text-center">
+                                <Receipt className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                                <h3 className="text-xl font-medium text-gray-900 mb-2">Nenhuma despesa</h3>
+                                <p className="text-gray-600 mb-4">Crie sua primeira despesa</p>
+                                <Button onClick={() => setShowCreateModal(true)}>
+                                    Criar Despesa
+                                </Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="h-full flex flex-col">
+                            {/* Grid responsivo */}
+                            <div className="flex-1 overflow-y-auto">
+                                <div className={`grid gap-3 pb-4 h-fit ${
+                                    cardsPerPage === 6 ? 'grid-cols-3 grid-rows-2' :
+                                    cardsPerPage === 12 ? 'grid-cols-4 grid-rows-3' :
+                                    'grid-cols-5 grid-rows-3'
+                                }`}>
+                                    {paginatedDespesas.map((despesa) => (
+                                        <div
+                                            key={despesa.id}
+                                            className="bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow p-4 cursor-pointer"
+                                            onClick={() => {
+                                                setSelectedDespesa(despesa);
+                                                setShowDetailsModal(true);
+                                            }}
+                                        >
+                                            {/* Header */}
+                                            <div className="flex items-center space-x-2 mb-3">
+                                                <div className="p-2 bg-primary-100 rounded-lg">
+                                                    <Receipt className="w-4 h-4 text-primary-600" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <h3 className="text-sm font-semibold text-gray-900 truncate">
+                                                        {safeString(despesa.descricao)}
+                                                    </h3>
+                                                    <p className="text-xs text-gray-500">
+                                                        {formatDate(despesa.data_despesa)}
+                                                    </p>
+                                                </div>
+                                            </div>
 
-                {/* Footer */}
-                <PageFooter systemName="Sistema de Despesas Online" />
+                                            {/* Valor */}
+                                            <div className="mb-3">
+                                                <p className="text-lg font-bold text-gray-900">
+                                                    {formatCurrency(despesa.valor)}
+                                                </p>
+                                            </div>
+
+                                            {/* Categoria e Status */}
+                                            <div className="flex items-center justify-between mb-3">
+                                                <span className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded-full capitalize">
+                                                    {safeString(despesa.categoria)}
+                                                </span>
+                                                <span className={`px-2 py-1 text-xs rounded-full border flex items-center ${getStatusColor(despesa.status)}`}>
+                                                    {getStatusIcon(despesa.status)}
+                                                    <span className="ml-1 capitalize">{safeString(despesa.status)}</span>
+                                                </span>
+                                            </div>
+
+                                            {/* Observações */}
+                                            {despesa.observacoes && (
+                                                <div className="mb-3">
+                                                    <p className="text-xs text-gray-600 line-clamp-2">
+                                                        {safeString(despesa.observacoes)}
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            {/* Admin info */}
+                                            {isAdmin && despesa.users_permissions_user && (
+                                                <div className="flex items-center space-x-1 mb-3 pt-2 border-t">
+                                                    <Users className="w-3 h-3 text-gray-400" />
+                                                    <span className="text-xs text-gray-600 truncate">
+                                                        {safeString(despesa.users_permissions_user.nomecompleto)}
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            {/* Action */}
+                                            <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                                                <span className="text-xs text-gray-500">Ver detalhes</span>
+                                                <ArrowUpRight className="w-4 h-4 text-gray-400" />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* PAGINAÇÃO FORÇADA - SEMPRE MOSTRA */}
+                            <div className="flex-shrink-0 mt-4 pt-4 border-t border-gray-200 bg-white">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-600">
+                                        Mostrando {paginatedDespesas.length} de {filteredDespesas.length} despesas
+                                        {totalPages > 1 && ` • Página ${currentPage} de ${totalPages}`}
+                                    </span>
+                                    
+                                    <div className="flex items-center space-x-2">
+                                        <button
+                                            onClick={() => setCurrentPage(1)}
+                                            disabled={currentPage === 1}
+                                            className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50"
+                                        >
+                                            Primeira
+                                        </button>
+                                        
+                                        <button
+                                            onClick={() => setCurrentPage(Math.max(currentPage - 1, 1))}
+                                            disabled={currentPage === 1}
+                                            className="flex items-center px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50"
+                                        >
+                                            <ChevronLeft className="w-4 h-4" />
+                                        </button>
+
+                                        <span className="px-3 py-1 bg-primary-500 text-white rounded text-sm font-medium">
+                                            {currentPage}
+                                        </span>
+
+                                        <button
+                                            onClick={() => setCurrentPage(Math.min(currentPage + 1, totalPages))}
+                                            disabled={currentPage >= totalPages}
+                                            className="flex items-center px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50"
+                                        >
+                                            <ChevronRight className="w-4 h-4" />
+                                        </button>
+                                        
+                                        <button
+                                            onClick={() => setCurrentPage(totalPages)}
+                                            disabled={currentPage >= totalPages}
+                                            className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50"
+                                        >
+                                            Última
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
 
-            {/* Modal Criar Despesa */}
+            {/* Modal Create */}
             <Modal
                 isOpen={showCreateModal}
                 onClose={() => setShowCreateModal(false)}
@@ -548,62 +562,48 @@ export default function DespesasPage() {
                 size="lg"
             >
                 <form onSubmit={handleCreateDespesa} className="space-y-6">
-                    {/* Descrição */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Descrição *
-                        </label>
+                        <label className="block text-sm font-medium mb-2">Descrição *</label>
                         <input
                             type="text"
                             required
                             value={novaDespesa.descricao}
-                            onChange={(e) => setNovaDespesa({ ...novaDespesa, descricao: safeString(e.target.value) })}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                            placeholder="Ex: Combustível, Refeição, Hospedagem..."
+                            onChange={(e) => setNovaDespesa({ ...novaDespesa, descricao: e.target.value })}
+                            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
+                            placeholder="Ex: Combustível, Refeição..."
                         />
                     </div>
 
-                    {/* Valor e Data */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Valor (€) *
-                            </label>
+                            <label className="block text-sm font-medium mb-2">Valor (€) *</label>
                             <input
                                 type="number"
                                 step="0.01"
-                                min="0"
                                 required
                                 value={novaDespesa.valor}
-                                onChange={(e) => setNovaDespesa({ ...novaDespesa, valor: safeString(e.target.value) })}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                                placeholder="0.00"
+                                onChange={(e) => setNovaDespesa({ ...novaDespesa, valor: e.target.value })}
+                                className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
                             />
                         </div>
-
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Data da Despesa *
-                            </label>
+                            <label className="block text-sm font-medium mb-2">Data *</label>
                             <input
                                 type="date"
                                 required
                                 value={novaDespesa.data_despesa}
-                                onChange={(e) => setNovaDespesa({ ...novaDespesa, data_despesa: safeString(e.target.value) })}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                                onChange={(e) => setNovaDespesa({ ...novaDespesa, data_despesa: e.target.value })}
+                                className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
                             />
                         </div>
                     </div>
 
-                    {/* Categoria */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Categoria *
-                        </label>
+                        <label className="block text-sm font-medium mb-2">Categoria</label>
                         <select
                             value={novaDespesa.categoria}
                             onChange={(e) => setNovaDespesa({ ...novaDespesa, categoria: e.target.value as any })}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
                         >
                             <option value="combustivel">Combustível</option>
                             <option value="alimentacao">Alimentação</option>
@@ -613,40 +613,27 @@ export default function DespesasPage() {
                         </select>
                     </div>
 
-                    {/* Observações */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Observações
-                        </label>
+                        <label className="block text-sm font-medium mb-2">Observações</label>
                         <textarea
                             value={novaDespesa.observacoes}
-                            onChange={(e) => setNovaDespesa({ ...novaDespesa, observacoes: safeString(e.target.value) })}
+                            onChange={(e) => setNovaDespesa({ ...novaDespesa, observacoes: e.target.value })}
                             rows={3}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                            placeholder="Detalhes adicionais sobre a despesa..."
+                            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
                         />
                     </div>
 
-                    {/* Comprovativo */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Comprovativo (Recibo/Fatura)
-                        </label>
+                        <label className="block text-sm font-medium mb-2">Comprovativo</label>
                         <input
                             type="file"
                             accept="image/*,.pdf"
                             onChange={(e) => setNovaDespesa({ ...novaDespesa, comprovativo: e.target.files?.[0] || null })}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                            className="w-full border rounded-lg px-3 py-2"
                         />
-                        {novaDespesa.comprovativo && (
-                            <p className="text-sm text-gray-600 mt-2 p-2 bg-gray-50 rounded border">
-                                📎 {novaDespesa.comprovativo.name}
-                            </p>
-                        )}
                     </div>
 
-                    {/* Botões */}
-                    <div className="flex space-x-4 pt-6 border-t border-gray-100">
+                    <div className="flex space-x-4 pt-4">
                         <Button
                             type="button"
                             variant="secondary"
@@ -655,154 +642,150 @@ export default function DespesasPage() {
                         >
                             Cancelar
                         </Button>
-                        <Button
-                            type="submit"
-                            loading={loading}
-                            className="flex-1"
-                        >
-                            Criar Despesa
+                        <Button type="submit" loading={loading} className="flex-1">
+                            Criar
                         </Button>
                     </div>
                 </form>
             </Modal>
 
-            {/* Modal Detalhes */}
-            {selectedDespesa && (
-                <Modal
-                    isOpen={showDetailsModal}
-                    onClose={() => setShowDetailsModal(false)}
-                    title="Detalhes da Despesa"
-                    size="lg"
-                >
-                    <div className="space-y-6">
-                        {/* Informações principais */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-sm font-medium text-gray-600">Descrição</label>
-                                    <p className="text-lg text-gray-900 mt-1">{safeString(selectedDespesa.descricao)}</p>
-                                </div>
-                                <div>
-                                    <label className="text-sm font-medium text-gray-600">Valor</label>
-                                    <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(selectedDespesa.valor)}</p>
-                                </div>
+            {/* Modal Details - CORRIGIDO PARA TODOS OS STATUS */}
+            {showDetailsModal && selectedDespesa && (
+                <div className="fixed inset-0 z-50 bg-black bg-opacity-50">
+                    <div className="flex items-center justify-center min-h-screen p-2 lg:p-4 lg:pl-72">
+                        <div className="bg-white rounded-lg shadow-xl w-full max-w-md lg:max-w-lg max-h-[90vh] overflow-hidden">
+                            {/* Header */}
+                            <div className="flex items-center justify-between p-3 border-b bg-gray-50">
+                                <h2 className="text-base font-semibold text-gray-900">Detalhes da Despesa</h2>
+                                <button
+                                    onClick={() => setShowDetailsModal(false)}
+                                    className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                >
+                                    <X className="w-4 h-4 text-gray-500" />
+                                </button>
                             </div>
 
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-sm font-medium text-gray-600">Data</label>
-                                    <p className="text-lg text-gray-900 mt-1">{formatDate(selectedDespesa.data_despesa)}</p>
-                                </div>
-                                <div>
-                                    <label className="text-sm font-medium text-gray-600">Categoria</label>
-                                    <p className="text-lg text-gray-900 capitalize mt-1">{safeString(selectedDespesa.categoria)}</p>
-                                </div>
-                            </div>
-                        </div>
+                            {/* Content com altura fixa */}
+                            <div className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 120px)' }}>
+                                <div className="p-3 space-y-3">
+                                    {/* Info Principal */}
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex-1 mr-3">
+                                            <label className="text-xs font-medium text-gray-600">DESCRIÇÃO</label>
+                                            <p className="text-base font-semibold text-gray-900">{safeString(selectedDespesa.descricao)}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <label className="text-xs font-medium text-gray-600">VALOR</label>
+                                            <p className="text-lg font-bold text-primary-600">{formatCurrency(selectedDespesa.valor)}</p>
+                                        </div>
+                                    </div>
 
-                        {/* Status */}
-                        <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <label className="text-sm font-medium text-gray-600">Status Atual</label>
-                            <div className="flex items-center space-x-2 mt-2">
-                                {getStatusIcon(selectedDespesa.status)}
-                                <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(selectedDespesa.status)}`}>
-                                    {safeString(selectedDespesa.status).charAt(0).toUpperCase() + safeString(selectedDespesa.status).slice(1)}
-                                </span>
-                            </div>
-                        </div>
+                                    {/* Data e Categoria */}
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="text-xs font-medium text-gray-600">DATA</label>
+                                            <p className="text-sm text-gray-900">{formatDate(selectedDespesa.data_despesa)}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-medium text-gray-600">CATEGORIA</label>
+                                            <p className="text-sm text-gray-900 capitalize">{safeString(selectedDespesa.categoria)}</p>
+                                        </div>
+                                    </div>
 
-                        {/* Observações */}
-                        {selectedDespesa.observacoes && (
-                            <div>
-                                <label className="text-sm font-medium text-gray-600">Observações</label>
-                                <p className="text-gray-900 mt-2 p-3 bg-gray-50 rounded-lg border border-gray-100">{safeString(selectedDespesa.observacoes)}</p>
-                            </div>
-                        )}
+                                    {/* Status */}
+                                    <div className="p-2 bg-gray-50 rounded">
+                                        <label className="text-xs font-medium text-gray-600">STATUS</label>
+                                        <div className="flex items-center space-x-2 mt-1">
+                                            {getStatusIcon(selectedDespesa.status)}
+                                            <span className={`px-2 py-1 rounded text-xs font-medium border ${getStatusColor(selectedDespesa.status)}`}>
+                                                {safeString(selectedDespesa.status).toUpperCase()}
+                                            </span>
+                                        </div>
+                                    </div>
 
-                        {/* Funcionário (Admin) */}
-                        {isAdmin && selectedDespesa.users_permissions_user && (
-                            <div>
-                                <label className="text-sm font-medium text-gray-600">Funcionário</label>
-                                <p className="text-lg text-gray-900 mt-1">{safeString(selectedDespesa.users_permissions_user.nomecompleto)}</p>
-                            </div>
-                        )}
-
-                        {/* Comprovativo */}
-                        {selectedDespesa.comprovativo && (
-                            <div className="pt-4 border-t border-gray-200">
-                                <label className="text-sm font-medium text-gray-600">Comprovativo</label>
-                                <div className="mt-3 flex items-center space-x-4">
-                                    {selectedDespesa.comprovativo.mime.startsWith('image/') ? (
-                                        <a
-                                            href={api.getMediaUrl(selectedDespesa.comprovativo)}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="block rounded-lg overflow-hidden border border-gray-200 hover:shadow-md transition-shadow"
-                                        >
-                                            <img
-                                                src={api.getMediaUrl(selectedDespesa.comprovativo)}
-                                                alt={safeString(selectedDespesa.comprovativo.name)}
-                                                className="h-24 w-auto object-cover rounded-lg"
-                                            />
-                                        </a>
-                                    ) : (
-                                        <div className="flex items-center space-x-2 text-gray-600">
-                                            <FileText className="w-10 h-10 text-primary-500" />
-                                            <span>{safeString(selectedDespesa.comprovativo.name)}</span>
+                                    {/* Observações */}
+                                    {selectedDespesa.observacoes && (
+                                        <div>
+                                            <label className="text-xs font-medium text-gray-600">OBSERVAÇÕES</label>
+                                            <p className="text-sm text-gray-900 mt-1 p-2 bg-gray-50 rounded">{safeString(selectedDespesa.observacoes)}</p>
                                         </div>
                                     )}
 
-                                    <a
-                                        href={api.getMediaUrl(selectedDespesa.comprovativo)}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
-                                    >
-                                        <Download className="w-4 h-4 mr-2" />
-                                        Ver / Baixar
-                                    </a>
+                                    {/* Funcionário */}
+                                    {isAdmin && selectedDespesa.users_permissions_user && (
+                                        <div>
+                                            <label className="text-xs font-medium text-gray-600">FUNCIONÁRIO</label>
+                                            <p className="text-sm text-gray-900 font-medium">{safeString(selectedDespesa.users_permissions_user.nomecompleto)}</p>
+                                        </div>
+                                    )}
+
+                                    {/* Comprovativo */}
+                                    {selectedDespesa.comprovativo && (
+                                        <div className="pt-2 border-t">
+                                            <label className="text-xs font-medium text-gray-600 mb-2 block">COMPROVATIVO</label>
+                                            <div className="flex items-center space-x-2">
+                                                {selectedDespesa.comprovativo.mime?.startsWith('image/') ? (
+                                                    <img
+                                                        src={api.getMediaUrl(selectedDespesa.comprovativo)}
+                                                        alt="Comprovativo"
+                                                        className="h-12 w-auto rounded border"
+                                                    />
+                                                ) : (
+                                                    <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded">
+                                                        <FileText className="w-5 h-5 text-primary-500" />
+                                                        <span className="text-xs">{safeString(selectedDespesa.comprovativo.name)}</span>
+                                                    </div>
+                                                )}
+                                                <Button
+                                                    onClick={() => selectedDespesa.comprovativo && window.open(api.getMediaUrl(selectedDespesa.comprovativo), '_blank')}
+                                                    variant="secondary"
+                                                    size="sm"
+                                                >
+                                                    <Download className="w-3 h-3 mr-1" />
+                                                    Ver
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Ações Admin COMPACTAS */}
+                                    {isAdmin && selectedDespesa.status === 'pendente' && (
+                                        <div className="pt-2 border-t">
+                                            <label className="text-xs font-medium text-gray-600 mb-2 block">AÇÕES</label>
+                                            <div className="flex space-x-2">
+                                                <Button
+                                                    onClick={() => handleStatusChange(selectedDespesa.id, 'aprovada')}
+                                                    loading={loading}
+                                                    className="flex-1 bg-green-600 hover:bg-green-700 text-xs py-1"
+                                                >
+                                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                                    Aprovar
+                                                </Button>
+                                                <Button
+                                                    onClick={() => handleStatusChange(selectedDespesa.id, 'rejeitada')}
+                                                    loading={loading}
+                                                    variant="danger"
+                                                    className="flex-1 text-xs py-1"
+                                                >
+                                                    <XCircle className="w-3 h-3 mr-1" />
+                                                    Rejeitar
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-                        )}
 
-                        {/* Ações de Aprovação para Admin */}
-                        {isAdmin && selectedDespesa.status === 'pendente' && (
-                            <div className="pt-6 border-t border-gray-200 space-y-4">
-                                <h3 className="text-lg font-semibold text-gray-900">Ações de Aprovação</h3>
-                                <div className="flex space-x-4">
-                                    <Button
-                                        onClick={() => handleStatusChange(selectedDespesa.id, 'aprovada')}
-                                        loading={loading}
-                                        variant="primary"
-                                        className="flex-1 bg-green-600 hover:bg-green-700"
-                                    >
-                                        <CheckCircle className="w-5 h-5 mr-2" />
-                                        Aprovar
-                                    </Button>
-                                    <Button
-                                        onClick={() => handleStatusChange(selectedDespesa.id, 'rejeitada', 'Rejeitada pelo administrador')}
-                                        loading={loading}
-                                        variant="danger"
-                                        className="flex-1"
-                                    >
-                                        <XCircle className="w-5 h-5 mr-2" />
-                                        Rejeitar
-                                    </Button>
-                                </div>
+                            {/* Footer */}
+                            <div className="flex justify-end p-3 border-t bg-gray-50">
+                                <Button variant="secondary" onClick={() => setShowDetailsModal(false)} size="sm">
+                                    Fechar
+                                </Button>
                             </div>
-                        )}
+                        </div>
                     </div>
-
-                    <div className="flex justify-end pt-6 border-t border-gray-200 mt-6">
-                        <Button
-                            variant="secondary"
-                            onClick={() => setShowDetailsModal(false)}
-                        >
-                            Fechar
-                        </Button>
-                    </div>
-                </Modal>
+                </div>
             )}
-        </main>
+        </div>
     );
 }
