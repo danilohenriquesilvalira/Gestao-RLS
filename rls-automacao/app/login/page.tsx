@@ -16,6 +16,9 @@ import {
   Loader2 
 } from 'lucide-react';
 
+// Importar o componente RLSLogo (certifique-se de que este caminho está correto)
+import RLSLogo from '@/components/RLSLogo'; 
+
 export default function LoginPage() {
   const [formData, setFormData] = useState<LoginCredentials>({
     identifier: '',
@@ -102,37 +105,35 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    // Container principal: Centraliza todo o conteúdo da página vertical e horizontalmente
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex items-center justify-center py-8 px-4 sm:py-12 sm:px-6 lg:px-8">
+      {/* Container de conteúdo: Define a largura máxima e organiza os elementos em coluna */}
+      <div className="max-w-md w-full flex flex-col items-center text-center"> 
         
-        {/* ===== HEADER ===== */}
-        <div className="text-center">
-          <div className="mx-auto h-20 w-20 bg-gradient-to-br from-green-600 to-green-700 rounded-full flex items-center justify-center shadow-lg mb-6 animate-pulse">
-            <span className="text-2xl font-bold text-white">RLS</span>
-          </div>
+        {/* ===== FORMULÁRIO / CARD DE LOGIN ===== */}
+        {/* Reduzindo o padding vertical do card (py-6 em vez de p-8) */}
+        <div className="bg-white px-8 py-6 rounded-2xl shadow-lg border border-gray-100 w-full mb-8"> 
           
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">
-            Bem-vindo de volta
-          </h2>
-          
-          <p className="text-gray-600">
-            Faça login para acessar o sistema RLS Automação
-          </p>
-        </div>
+          {/* RLSLogo: Ajuste de margem inferior para aproximar do conteúdo */}
+          {/* mb-6 foi escolhido para aproximar mais dos campos, após remover a descrição */}
+          <RLSLogo className="mx-auto h-28 w-28 sm:h-32 sm:w-32 lg:h-36 lg:w-36 mb-6" /> 
 
-        {/* ===== FORMULÁRIO ===== */}
-        <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
-          
+          {/* REMOVIDO: Plataforma de Gestão Completa */}
+          {/* <p className="text-gray-600 text-base mb-6"> 
+            Plataforma de Gestão Completa
+          </p> */}
+
           {/* MENSAGENS DE FEEDBACK */}
+          {/* Ajustando a margem superior das mensagens se o logo estiver muito próximo */}
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg flex items-center space-x-2 mb-6">
+            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg flex items-center space-x-2 mb-6 mt-4"> {/* Adicionado mt-4 */}
               <AlertCircle className="w-5 h-5 flex-shrink-0" />
               <span className="text-sm">{error}</span>
             </div>
           )}
           
           {success && (
-            <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center space-x-2 mb-6">
+            <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center space-x-2 mb-6 mt-4"> {/* Adicionado mt-4 */}
               <CheckCircle className="w-5 h-5 flex-shrink-0" />
               <span className="text-sm">{success}</span>
             </div>
@@ -142,7 +143,7 @@ export default function LoginPage() {
             
             {/* EMAIL/USERNAME */}
             <div>
-              <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-2 text-left">
                 Email ou Usuário
               </label>
               <div className="relative">
@@ -162,12 +163,12 @@ export default function LoginPage() {
                   value={formData.identifier}
                   onChange={handleInputChange}
                   className={`input-field pl-10 ${validationErrors.identifier ? 'input-error' : ''}`}
-                  placeholder="Digite seu email ou usuário"
+                  placeholder="Seu email ou nome de usuário"
                   disabled={loading}
                 />
               </div>
               {validationErrors.identifier && (
-                <p className="mt-1 text-sm text-red-600 flex items-center space-x-1">
+                <p className="mt-1 text-sm text-red-600 flex items-center space-x-1 text-left">
                   <AlertCircle className="w-4 h-4" />
                   <span>{validationErrors.identifier}</span>
                 </p>
@@ -176,7 +177,7 @@ export default function LoginPage() {
 
             {/* SENHA */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2 text-left">
                 Senha
               </label>
               <div className="relative">
@@ -192,7 +193,7 @@ export default function LoginPage() {
                   value={formData.password}
                   onChange={handleInputChange}
                   className={`input-field pl-10 pr-10 ${validationErrors.password ? 'input-error' : ''}`}
-                  placeholder="Digite sua senha"
+                  placeholder="Sua senha"
                   disabled={loading}
                 />
                 <button
@@ -209,7 +210,7 @@ export default function LoginPage() {
                 </button>
               </div>
               {validationErrors.password && (
-                <p className="mt-1 text-sm text-red-600 flex items-center space-x-1">
+                <p className="mt-1 text-sm text-red-600 flex items-center space-x-1 text-left">
                   <AlertCircle className="w-4 h-4" />
                   <span>{validationErrors.password}</span>
                 </p>
@@ -246,7 +247,7 @@ export default function LoginPage() {
             >
               {loading ? (
                 <>
-                  <div className="loading-spinner"></div>
+                  <Loader2 className="animate-spin h-5 w-5" />
                   <span>Entrando...</span>
                 </>
               ) : (
@@ -255,7 +256,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* FOOTER */}
+          {/* FOOTER DO FORMULÁRIO */}
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
               Não tem uma conta?{' '}
@@ -266,11 +267,14 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* COPYRIGHT */}
-        <div className="text-center">
-          <p className="text-xs text-gray-500">
-            © 2024 RLS Automação. Todos os direitos reservados.
-          </p>
+        {/* COPYRIGHT OTIMIZADO PARA TELAS MENORES */}
+        <div className="text-center text-xs text-gray-500 pt-4 border-t border-gray-200 w-full max-w-sm mx-auto">
+            <p className="mb-1">
+                © 2024 RLS Automação. Todos os direitos reservados. <span className="hidden sm:inline-block">|</span><br className="sm:hidden" /> Versão 1.0
+            </p>
+            <p>
+                Desenvolvido por <a href="https://www.danilolira.com" target="_blank" rel="noopener noreferrer" className="text-green-600 hover:text-green-500 transition-colors font-medium">Danilo Lira</a>
+            </p>
         </div>
       </div>
     </div>

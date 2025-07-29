@@ -278,7 +278,7 @@ export default function DashboardLayout({
         className={`${mainContentMargin} flex flex-col min-h-screen transition-all duration-300 ease-out`}
       >
         {/* Top Header */}
-        <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-gray-100 shadow-md">
+        <header className="sticky top-0 z-30 bg-white shadow-md">
           <div className="flex items-center justify-between h-20 px-6">
             {/* Mobile menu button */}
             <button
@@ -289,16 +289,16 @@ export default function DashboardLayout({
               <Menu className="w-6 h-6" />
             </button>
 
-            {/* Page title - Desktop only */}
-            <div className="hidden lg:block">
+            {/* Page title - Desktop only - REMOVED THIS SECTION */}
+            {/* <div className="hidden lg:block">
               <h1 className="text-2xl font-bold text-gray-900">
                 {navigation.find((nav) => nav.href === pathname)?.name ||
                   'Dashboard'}
               </h1>
-            </div>
+            </div> */}
 
             {/* Right side actions */}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4 ml-auto"> {/* Added ml-auto to push items to the right */}
               {/* Search button */}
               <button
                 className="p-3 rounded-xl text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50"

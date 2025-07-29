@@ -29,6 +29,7 @@ import Loading from '@/components/ui/Loading';
 import Alert from '@/components/ui/Alert';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
+import Pagination from '@/components/ui/Pagination';
 
 type StatusDespesa = 'todas' | 'pendente' | 'aprovada' | 'rejeitada';
 
@@ -56,17 +57,23 @@ export default function DespesasPage() {
     const [selectedFuncionario, setSelectedFuncionario] = useState<string>('');
     const [selectedMes, setSelectedMes] = useState<number>(0);
     const [selectedAno, setSelectedAno] = useState<number>(0);
+    const [isMobile, setIsMobile] = useState(false);
 
     // Cards responsivos baseados na resolução
     const [cardsPerPage, setCardsPerPage] = useState(6);
 
-    // Detecta tamanho da tela e ajusta cards por página
+    // Detecta mobile e ajusta layout
     useEffect(() => {
-        const updateCardsPerPage = () => {
+        const updateLayout = () => {
             const width = window.innerWidth;
             const height = window.innerHeight;
+            const mobile = width <= 768;
             
-            if (width <= 1528 && height <= 834) {
+            setIsMobile(mobile);
+            
+            if (mobile) {
+                setCardsPerPage(5); // Mobile: 5 cards por página (lista vertical)
+            } else if (width <= 1528 && height <= 834) {
                 setCardsPerPage(6); // 2 fileiras x 3 colunas
             } else if (width > 1900) {
                 setCardsPerPage(15); // 3 fileiras x 5 colunas
@@ -75,9 +82,9 @@ export default function DespesasPage() {
             }
         };
 
-        updateCardsPerPage();
-        window.addEventListener('resize', updateCardsPerPage);
-        return () => window.removeEventListener('resize', updateCardsPerPage);
+        updateLayout();
+        window.addEventListener('resize', updateLayout);
+        return () => window.removeEventListener('resize', updateLayout);
     }, []);
 
     const [novaDespesa, setNovaDespesa] = useState({
@@ -268,7 +275,7 @@ export default function DespesasPage() {
         return meses[mes - 1] || 'N/A';
     };
 
-    // Paginação - SIMPLES E DIRETO
+    // Paginação - CÁLCULOS
     const totalPages = Math.ceil(filteredDespesas.length / cardsPerPage);
     const startIndex = (currentPage - 1) * cardsPerPage;
     const paginatedDespesas = filteredDespesas.slice(startIndex, startIndex + cardsPerPage);
@@ -295,102 +302,158 @@ export default function DespesasPage() {
     }
 
     return (
-        <div className="h-full lg:fixed lg:top-20 lg:left-0 lg:lg:left-64 lg:right-0 lg:bottom-0 bg-white overflow-hidden">
+        <div className={`h-full ${isMobile ? '' : 'lg:fixed lg:top-20 lg:left-0 lg:lg:left-64 lg:right-0 lg:bottom-0'} bg-white overflow-hidden`}>
             <div className="h-full flex flex-col">
                 
                 {/* Header */}
-                <div className="flex-shrink-0 p-3 sm:p-4 border-b border-gray-200">
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between space-y-3 lg:space-y-0">
+                <div className={`flex-shrink-0 ${isMobile ? 'p-4' : 'p-3 sm:p-4'} border-b border-gray-200`}>
+                    <div className={`flex ${isMobile ? 'flex-col space-y-4' : 'flex-col lg:flex-row lg:items-center justify-between space-y-3 lg:space-y-0'}`}>
                         <div className="flex items-center space-x-2 sm:space-x-3">
                             <div className="p-2 bg-primary-100 rounded-lg">
-                                <Receipt className="w-5 h-5 sm:w-6 h-6 text-primary-600" />
+                                <Receipt className={`${isMobile ? 'w-6 h-6' : 'w-5 h-5 sm:w-6 h-6'} text-primary-600`} />
                             </div>
                             <div>
-                                <h1 className="text-lg sm:text-xl font-bold text-gray-900">Despesas</h1>
-                                <p className="text-xs sm:text-sm text-gray-600">{stats.total} despesas • {formatCurrency(stats.valorTotal)}</p>
+                                <h1 className={`${isMobile ? 'text-xl' : 'text-lg sm:text-xl'} font-bold text-gray-900`}>Despesas</h1>
+                                <p className={`${isMobile ? 'text-sm' : 'text-xs sm:text-sm'} text-gray-600`}>{stats.total} despesas • {formatCurrency(stats.valorTotal)}</p>
                             </div>
                         </div>
                         
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className={`flex ${isMobile ? 'flex-col space-y-3' : 'flex-wrap items-center gap-2'}`}>
                             <Button
                                 onClick={() => setShowCreateModal(true)}
-                                size="sm"
+                                size={isMobile ? "md" : "sm"}
                                 className="bg-primary-500 hover:bg-primary-600"
                             >
                                 <Plus className="w-4 h-4 mr-1" />
-                                Nova
+                                Nova Despesa
                             </Button>
 
-                            <div className="flex items-center space-x-2">
-                                <select
-                                    value={selectedMes}
-                                    onChange={(e) => setSelectedMes(Number(e.target.value))}
-                                    className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-200"
-                                >
-                                    <option value={0}>Todos os meses</option>
-                                    {Array.from({length: 12}, (_, i) => (
-                                        <option key={i+1} value={i+1}>
-                                            {getMesNome(i+1)}
-                                        </option>
-                                    ))}
-                                </select>
+                            {/* Filtros Mobile - Vertical */}
+                            {isMobile ? (
+                                <div className="space-y-2">
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <select
+                                            value={selectedMes}
+                                            onChange={(e) => setSelectedMes(Number(e.target.value))}
+                                            className="px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-200"
+                                        >
+                                            <option value={0}>Todos os meses</option>
+                                            {Array.from({length: 12}, (_, i) => (
+                                                <option key={i+1} value={i+1}>
+                                                    {getMesNome(i+1)}
+                                                </option>
+                                            ))}
+                                        </select>
 
-                                <select
-                                    value={selectedAno}
-                                    onChange={(e) => setSelectedAno(Number(e.target.value))}
-                                    className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-200"
-                                >
-                                    <option value={0}>Todos os anos</option>
-                                    {anosDisponiveis.map(ano => (
-                                        <option key={ano} value={ano}>{ano}</option>
-                                    ))}
-                                </select>
+                                        <select
+                                            value={selectedAno}
+                                            onChange={(e) => setSelectedAno(Number(e.target.value))}
+                                            className="px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-200"
+                                        >
+                                            <option value={0}>Todos os anos</option>
+                                            {anosDisponiveis.map(ano => (
+                                                <option key={ano} value={ano}>{ano}</option>
+                                            ))}
+                                        </select>
+                                    </div>
 
-                                <select
-                                    value={statusFilter}
-                                    onChange={(e) => handleFilterChange(e.target.value as StatusDespesa)}
-                                    className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-200"
-                                >
-                                    <option value="todas">Todas</option>
-                                    <option value="pendente">Pendentes</option>
-                                    <option value="aprovada">Aprovadas</option>
-                                    <option value="rejeitada">Rejeitadas</option>
-                                </select>
-
-                                {isAdmin && (
                                     <select
-                                        value={selectedFuncionario}
-                                        onChange={(e) => setSelectedFuncionario(e.target.value)}
+                                        value={statusFilter}
+                                        onChange={(e) => handleFilterChange(e.target.value as StatusDespesa)}
+                                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-200"
+                                    >
+                                        <option value="todas">Todas</option>
+                                        <option value="pendente">Pendentes</option>
+                                        <option value="aprovada">Aprovadas</option>
+                                        <option value="rejeitada">Rejeitadas</option>
+                                    </select>
+
+                                    {isAdmin && (
+                                        <select
+                                            value={selectedFuncionario}
+                                            onChange={(e) => setSelectedFuncionario(e.target.value)}
+                                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-200"
+                                        >
+                                            <option value="">Todos os funcionários</option>
+                                            {funcionarios.map(nome => (
+                                                <option key={nome} value={nome}>{nome}</option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </div>
+                            ) : (
+                                /* Filtros Desktop - Horizontal */
+                                <div className="flex items-center space-x-2">
+                                    <select
+                                        value={selectedMes}
+                                        onChange={(e) => setSelectedMes(Number(e.target.value))}
                                         className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-200"
                                     >
-                                        <option value="">Todos os funcionários</option>
-                                        {funcionarios.map(nome => (
-                                            <option key={nome} value={nome}>{nome}</option>
+                                        <option value={0}>Todos os meses</option>
+                                        {Array.from({length: 12}, (_, i) => (
+                                            <option key={i+1} value={i+1}>
+                                                {getMesNome(i+1)}
+                                            </option>
                                         ))}
                                     </select>
-                                )}
-                            </div>
+
+                                    <select
+                                        value={selectedAno}
+                                        onChange={(e) => setSelectedAno(Number(e.target.value))}
+                                        className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-200"
+                                    >
+                                        <option value={0}>Todos os anos</option>
+                                        {anosDisponiveis.map(ano => (
+                                            <option key={ano} value={ano}>{ano}</option>
+                                        ))}
+                                    </select>
+
+                                    <select
+                                        value={statusFilter}
+                                        onChange={(e) => handleFilterChange(e.target.value as StatusDespesa)}
+                                        className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-200"
+                                    >
+                                        <option value="todas">Todas</option>
+                                        <option value="pendente">Pendentes</option>
+                                        <option value="aprovada">Aprovadas</option>
+                                        <option value="rejeitada">Rejeitadas</option>
+                                    </select>
+
+                                    {isAdmin && (
+                                        <select
+                                            value={selectedFuncionario}
+                                            onChange={(e) => setSelectedFuncionario(e.target.value)}
+                                            className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-200"
+                                        >
+                                            <option value="">Todos os funcionários</option>
+                                            {funcionarios.map(nome => (
+                                                <option key={nome} value={nome}>{nome}</option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
 
                 {/* Stats */}
-                <div className="flex-shrink-0 p-3 sm:p-4 border-b border-gray-100">
+                <div className={`flex-shrink-0 ${isMobile ? 'p-4' : 'p-3 sm:p-4'} border-b border-gray-100`}>
                     <div className="grid grid-cols-4 gap-2">
                         <div className="bg-white p-2 rounded border text-center">
-                            <div className="text-base font-bold text-gray-900">{stats.total}</div>
+                            <div className={`${isMobile ? 'text-lg' : 'text-base'} font-bold text-gray-900`}>{stats.total}</div>
                             <div className="text-xs text-gray-600">Total</div>
                         </div>
                         <div className="bg-white p-2 rounded border text-center">
-                            <div className="text-base font-bold text-green-600">{stats.aprovadas}</div>
+                            <div className={`${isMobile ? 'text-lg' : 'text-base'} font-bold text-green-600`}>{stats.aprovadas}</div>
                             <div className="text-xs text-gray-600">Aprovadas</div>
                         </div>
                         <div className="bg-white p-2 rounded border text-center">
-                            <div className="text-base font-bold text-yellow-600">{stats.pendentes}</div>
+                            <div className={`${isMobile ? 'text-lg' : 'text-base'} font-bold text-yellow-600`}>{stats.pendentes}</div>
                             <div className="text-xs text-gray-600">Pendentes</div>
                         </div>
                         <div className="bg-white p-2 rounded border text-center">
-                            <div className="text-base font-bold text-blue-600">{formatCurrency(stats.valorTotal)}</div>
+                            <div className={`${isMobile ? 'text-sm' : 'text-base'} font-bold text-blue-600`}>{isMobile ? formatCurrency(stats.valorTotal).replace('€', '€') : formatCurrency(stats.valorTotal)}</div>
                             <div className="text-xs text-gray-600">Valor</div>
                         </div>
                     </div>
@@ -398,7 +461,7 @@ export default function DespesasPage() {
 
                 {/* Error Alert */}
                 {error && (
-                    <div className="flex-shrink-0 p-3 sm:p-4">
+                    <div className={`flex-shrink-0 ${isMobile ? 'p-4' : 'p-3 sm:p-4'}`}>
                         <Alert
                             type="error"
                             title="Erro"
@@ -410,7 +473,7 @@ export default function DespesasPage() {
                 )}
 
                 {/* Content */}
-                <div className="flex-1 min-h-0 p-3 sm:p-4">
+                <div className={`flex-1 min-h-0 ${isMobile ? 'p-4 pb-20' : 'p-3 sm:p-4 pb-16'}`}>
                     {filteredDespesas.length === 0 ? (
                         <div className="h-full flex items-center justify-center">
                             <div className="text-center">
@@ -425,133 +488,227 @@ export default function DespesasPage() {
                     ) : (
                         <div className="h-full flex flex-col">
                             {/* Grid responsivo */}
-                            <div className="flex-1 overflow-y-auto">
-                                <div className={`grid gap-3 pb-4 h-fit ${
-                                    cardsPerPage === 6 ? 'grid-cols-3 grid-rows-2' :
-                                    cardsPerPage === 12 ? 'grid-cols-4 grid-rows-3' :
-                                    'grid-cols-5 grid-rows-3'
-                                }`}>
-                                    {paginatedDespesas.map((despesa) => (
-                                        <div
-                                            key={despesa.id}
-                                            className="bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow p-4 cursor-pointer"
-                                            onClick={() => {
-                                                setSelectedDespesa(despesa);
-                                                setShowDetailsModal(true);
-                                            }}
-                                        >
-                                            {/* Header */}
-                                            <div className="flex items-center space-x-2 mb-3">
-                                                <div className="p-2 bg-primary-100 rounded-lg">
-                                                    <Receipt className="w-4 h-4 text-primary-600" />
+                            <div className="flex-1 overflow-y-auto pb-4">
+                                {isMobile ? (
+                                    /* Layout Mobile - Lista Vertical */
+                                    <div className="space-y-3">
+                                        {paginatedDespesas.map((despesa) => (
+                                            <div
+                                                key={despesa.id}
+                                                className="bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow p-4 cursor-pointer"
+                                                onClick={() => {
+                                                    setSelectedDespesa(despesa);
+                                                    setShowDetailsModal(true);
+                                                }}
+                                            >
+                                                {/* Header Mobile */}
+                                                <div className="flex items-start justify-between mb-3">
+                                                    <div className="flex items-start space-x-3 flex-1">
+                                                        <div className="p-2 bg-primary-100 rounded-lg">
+                                                            <Receipt className="w-5 h-5 text-primary-600" />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <h3 className="text-base font-semibold text-gray-900 truncate">
+                                                                {safeString(despesa.descricao)}
+                                                            </h3>
+                                                            <p className="text-sm text-gray-500">
+                                                                {formatDate(despesa.data_despesa)}
+                                                            </p>
+                                                            <p className="text-xs text-gray-400 capitalize">
+                                                                {safeString(despesa.categoria)}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-lg font-bold text-primary-600">
+                                                            {formatCurrency(despesa.valor)}
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <h3 className="text-sm font-semibold text-gray-900 truncate">
-                                                        {safeString(despesa.descricao)}
-                                                    </h3>
-                                                    <p className="text-xs text-gray-500">
-                                                        {formatDate(despesa.data_despesa)}
-                                                    </p>
+
+                                                {/* Status e Admin */}
+                                                <div className="flex items-center justify-between">
+                                                    <span className={`px-3 py-1 text-xs rounded-full border flex items-center ${getStatusColor(despesa.status)}`}>
+                                                        {getStatusIcon(despesa.status)}
+                                                        <span className="ml-1 capitalize">{safeString(despesa.status)}</span>
+                                                    </span>
+                                                    
+                                                    {isAdmin && despesa.users_permissions_user && (
+                                                        <div className="flex items-center space-x-1">
+                                                            <Users className="w-4 h-4 text-gray-400" />
+                                                            <span className="text-xs text-gray-600 truncate max-w-24">
+                                                                {safeString(despesa.users_permissions_user.nomecompleto)}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    /* Layout Desktop - Grid */
+                                    <div className={`grid gap-3 ${
+                                        cardsPerPage === 6 ? 'grid-cols-3 grid-rows-2' :
+                                        cardsPerPage === 12 ? 'grid-cols-4 grid-rows-3' :
+                                        'grid-cols-5 grid-rows-3'
+                                    }`}>
+                                        {paginatedDespesas.map((despesa) => (
+                                            <div
+                                                key={despesa.id}
+                                                className="bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow p-4 cursor-pointer"
+                                                onClick={() => {
+                                                    setSelectedDespesa(despesa);
+                                                    setShowDetailsModal(true);
+                                                }}
+                                            >
+                                                {/* Header */}
+                                                <div className="flex items-center space-x-2 mb-3">
+                                                    <div className="p-2 bg-primary-100 rounded-lg">
+                                                        <Receipt className="w-4 h-4 text-primary-600" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <h3 className="text-sm font-semibold text-gray-900 truncate">
+                                                            {safeString(despesa.descricao)}
+                                                        </h3>
+                                                        <p className="text-xs text-gray-500">
+                                                            {formatDate(despesa.data_despesa)}
+                                                        </p>
+                                                    </div>
+                                                </div>
 
-                                            {/* Valor */}
-                                            <div className="mb-3">
-                                                <p className="text-lg font-bold text-gray-900">
-                                                    {formatCurrency(despesa.valor)}
-                                                </p>
-                                            </div>
-
-                                            {/* Categoria e Status */}
-                                            <div className="flex items-center justify-between mb-3">
-                                                <span className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded-full capitalize">
-                                                    {safeString(despesa.categoria)}
-                                                </span>
-                                                <span className={`px-2 py-1 text-xs rounded-full border flex items-center ${getStatusColor(despesa.status)}`}>
-                                                    {getStatusIcon(despesa.status)}
-                                                    <span className="ml-1 capitalize">{safeString(despesa.status)}</span>
-                                                </span>
-                                            </div>
-
-                                            {/* Observações */}
-                                            {despesa.observacoes && (
+                                                {/* Valor */}
                                                 <div className="mb-3">
-                                                    <p className="text-xs text-gray-600 line-clamp-2">
-                                                        {safeString(despesa.observacoes)}
+                                                    <p className="text-lg font-bold text-gray-900">
+                                                        {formatCurrency(despesa.valor)}
                                                     </p>
                                                 </div>
-                                            )}
 
-                                            {/* Admin info */}
-                                            {isAdmin && despesa.users_permissions_user && (
-                                                <div className="flex items-center space-x-1 mb-3 pt-2 border-t">
-                                                    <Users className="w-3 h-3 text-gray-400" />
-                                                    <span className="text-xs text-gray-600 truncate">
-                                                        {safeString(despesa.users_permissions_user.nomecompleto)}
+                                                {/* Categoria e Status */}
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <span className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded-full capitalize">
+                                                        {safeString(despesa.categoria)}
+                                                    </span>
+                                                    <span className={`px-2 py-1 text-xs rounded-full border flex items-center ${getStatusColor(despesa.status)}`}>
+                                                        {getStatusIcon(despesa.status)}
+                                                        <span className="ml-1 capitalize">{safeString(despesa.status)}</span>
                                                     </span>
                                                 </div>
-                                            )}
 
-                                            {/* Action */}
-                                            <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                                                <span className="text-xs text-gray-500">Ver detalhes</span>
-                                                <ArrowUpRight className="w-4 h-4 text-gray-400" />
+                                                {/* Observações */}
+                                                {despesa.observacoes && (
+                                                    <div className="mb-3">
+                                                        <p className="text-xs text-gray-600 line-clamp-2">
+                                                            {safeString(despesa.observacoes)}
+                                                        </p>
+                                                    </div>
+                                                )}
+
+                                                {/* Admin info */}
+                                                {isAdmin && despesa.users_permissions_user && (
+                                                    <div className="flex items-center space-x-1 mb-3 pt-2 border-t">
+                                                        <Users className="w-3 h-3 text-gray-400" />
+                                                        <span className="text-xs text-gray-600 truncate">
+                                                            {safeString(despesa.users_permissions_user.nomecompleto)}
+                                                        </span>
+                                                    </div>
+                                                )}
+
+                                                {/* Action */}
+                                                <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                                                    <span className="text-xs text-gray-500">Ver detalhes</span>
+                                                    <ArrowUpRight className="w-4 h-4 text-gray-400" />
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
+                        </div>
+                    )}
+                </div>
 
-                            {/* PAGINAÇÃO FORÇADA - SEMPRE MOSTRA */}
-                            <div className="flex-shrink-0 mt-4 pt-4 border-t border-gray-200 bg-white">
+                {/* PAGINAÇÃO RESPONSIVA */}
+                {filteredDespesas.length > 0 && (
+                    <div className={`fixed bottom-0 ${isMobile ? 'left-0 right-0' : 'left-0 lg:left-64 xl:left-80 right-0 xl:right-80'} bg-white border-t border-gray-200 shadow-lg z-30`}>
+                        <div className={`${isMobile ? 'p-3' : 'p-3 sm:p-4'}`}>
+                            {isMobile ? (
+                                /* Paginação Mobile - Compacta */
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm text-gray-600">
-                                        Mostrando {paginatedDespesas.length} de {filteredDespesas.length} despesas
-                                        {totalPages > 1 && ` • Página ${currentPage} de ${totalPages}`}
+                                    <span className="text-xs text-gray-600">
+                                        {startIndex + 1}-{Math.min(startIndex + cardsPerPage, filteredDespesas.length)} de {filteredDespesas.length}
                                     </span>
                                     
-                                    <div className="flex items-center space-x-2">
-                                        <button
-                                            onClick={() => setCurrentPage(1)}
-                                            disabled={currentPage === 1}
-                                            className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50"
-                                        >
-                                            Primeira
-                                        </button>
-                                        
+                                    <div className="flex items-center space-x-1">
                                         <button
                                             onClick={() => setCurrentPage(Math.max(currentPage - 1, 1))}
                                             disabled={currentPage === 1}
-                                            className="flex items-center px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50"
+                                            className="flex items-center px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50"
                                         >
                                             <ChevronLeft className="w-4 h-4" />
                                         </button>
 
-                                        <span className="px-3 py-1 bg-primary-500 text-white rounded text-sm font-medium">
-                                            {currentPage}
+                                        <span className="px-3 py-2 bg-primary-500 text-white rounded-lg text-sm font-bold min-w-16 text-center">
+                                            {currentPage}/{totalPages}
                                         </span>
 
                                         <button
                                             onClick={() => setCurrentPage(Math.min(currentPage + 1, totalPages))}
                                             disabled={currentPage >= totalPages}
-                                            className="flex items-center px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50"
+                                            className="flex items-center px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50"
                                         >
                                             <ChevronRight className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                /* Paginação Desktop */
+                                <div className="flex items-center justify-between text-xs sm:text-sm">
+                                    <span className="text-gray-600">
+                                        {startIndex + 1}-{Math.min(startIndex + cardsPerPage, filteredDespesas.length)} de {filteredDespesas.length}
+                                    </span>
+                                    
+                                    <div className="flex items-center space-x-1 sm:space-x-2">
+                                        <button
+                                            onClick={() => setCurrentPage(1)}
+                                            disabled={currentPage === 1}
+                                            className="px-2 py-1 text-xs border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            1ª
+                                        </button>
+                                        
+                                        <button
+                                            onClick={() => setCurrentPage(Math.max(currentPage - 1, 1))}
+                                            disabled={currentPage === 1}
+                                            className="flex items-center px-2 py-1 text-xs border rounded hover:bg-gray-50 disabled:opacity-50"
+                                        >
+                                            <ChevronLeft className="w-3 h-3" />
+                                        </button>
+
+                                        <span className="px-3 py-1 bg-primary-500 text-white rounded text-xs font-bold">
+                                            {currentPage}/{totalPages}
+                                        </span>
+
+                                        <button
+                                            onClick={() => setCurrentPage(Math.min(currentPage + 1, totalPages))}
+                                            disabled={currentPage >= totalPages}
+                                            className="flex items-center px-2 py-1 text-xs border rounded hover:bg-gray-50 disabled:opacity-50"
+                                        >
+                                            <ChevronRight className="w-3 h-3" />
                                         </button>
                                         
                                         <button
                                             onClick={() => setCurrentPage(totalPages)}
                                             disabled={currentPage >= totalPages}
-                                            className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50"
+                                            className="px-2 py-1 text-xs border rounded hover:bg-gray-50 disabled:opacity-50"
                                         >
-                                            Última
+                                            Últ
                                         </button>
                                     </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
 
             {/* Modal Create */}
@@ -649,11 +806,11 @@ export default function DespesasPage() {
                 </form>
             </Modal>
 
-            {/* Modal Details - CORRIGIDO PARA TODOS OS STATUS */}
+            {/* Modal Details */}
             {showDetailsModal && selectedDespesa && (
                 <div className="fixed inset-0 z-50 bg-black bg-opacity-50">
-                    <div className="flex items-center justify-center min-h-screen p-2 lg:p-4 lg:pl-72">
-                        <div className="bg-white rounded-lg shadow-xl w-full max-w-md lg:max-w-lg max-h-[90vh] overflow-hidden">
+                    <div className={`flex items-center justify-center min-h-screen ${isMobile ? 'p-4' : 'p-2 lg:p-4 lg:pl-72'}`}>
+                        <div className={`bg-white rounded-lg shadow-xl ${isMobile ? 'w-full max-w-sm' : 'w-full max-w-md lg:max-w-lg'} max-h-[90vh] overflow-hidden`}>
                             {/* Header */}
                             <div className="flex items-center justify-between p-3 border-b bg-gray-50">
                                 <h2 className="text-base font-semibold text-gray-900">Detalhes da Despesa</h2>
@@ -748,15 +905,15 @@ export default function DespesasPage() {
                                         </div>
                                     )}
 
-                                    {/* Ações Admin COMPACTAS */}
+                                    {/* Ações Admin */}
                                     {isAdmin && selectedDespesa.status === 'pendente' && (
                                         <div className="pt-2 border-t">
                                             <label className="text-xs font-medium text-gray-600 mb-2 block">AÇÕES</label>
-                                            <div className="flex space-x-2">
+                                            <div className={`flex ${isMobile ? 'flex-col space-y-2' : 'space-x-2'}`}>
                                                 <Button
                                                     onClick={() => handleStatusChange(selectedDespesa.id, 'aprovada')}
                                                     loading={loading}
-                                                    className="flex-1 bg-green-600 hover:bg-green-700 text-xs py-1"
+                                                    className={`${isMobile ? 'w-full' : 'flex-1'} bg-green-600 hover:bg-green-700 text-xs py-1`}
                                                 >
                                                     <CheckCircle className="w-3 h-3 mr-1" />
                                                     Aprovar
@@ -765,7 +922,7 @@ export default function DespesasPage() {
                                                     onClick={() => handleStatusChange(selectedDespesa.id, 'rejeitada')}
                                                     loading={loading}
                                                     variant="danger"
-                                                    className="flex-1 text-xs py-1"
+                                                    className={`${isMobile ? 'w-full' : 'flex-1'} text-xs py-1`}
                                                 >
                                                     <XCircle className="w-3 h-3 mr-1" />
                                                     Rejeitar
