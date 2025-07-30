@@ -1,32 +1,17 @@
+// app/dashboard/compartilhamento/page.tsx - REFATORADO
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { compartilhamentoAPI, ArquivoCompartilhado, UploadData } from '@/lib/compartilhamentoApi';
+import { pastaAPI, PastaCompartilhamento } from '@/lib/pastaApi';
 import { useAuth } from '@/hooks/useAuth';
+import { PastaTreeView, PastaModal } from '@/components/compartilhamento/PastaComponents';
+import { HeaderComponent } from '@/components/compartilhamento/HeaderComponent';
+import { FileGrid } from '@/components/compartilhamento/FileGrid';
+import { UploadModal } from '@/components/compartilhamento/UploadModal';
 import {
-    Upload,
-    Download,
-    Share2,
-    Trash2,
-    Search,
-    Plus,
-    X,
-    Eye,
-    EyeOff,
-    Loader2,
-    AlertCircle,
-    CheckCircle,
-    Folder,
-    Archive,
-    FileText,
-    Image,
-    Code,
-    Users,
-    Calendar,
-    HardDrive,
-    ArrowUpRight,
-    ChevronLeft,
-    ChevronRight
+    Search, Loader2, AlertCircle, CheckCircle, X, FolderPlus,
+    ChevronLeft, ChevronRight, Folder, Archive, FileText, Image, Code
 } from 'lucide-react';
 
 const categorias = [
@@ -39,42 +24,65 @@ const categorias = [
 
 export default function CompartilhamentoPage() {
     const { user, isAdmin } = useAuth();
+    
+    // Estados principais
     const [arquivos, setArquivos] = useState<ArquivoCompartilhado[]>([]);
+    const [arquivosSemPasta, setArquivosSemPasta] = useState<ArquivoCompartilhado[]>([]);
+    const [pastas, setPastas] = useState<PastaCompartilhamento[]>([]);
+    const [pastaAtual, setPastaAtual] = useState<PastaCompartilhamento | null>(null);
+    
+    // Estados de UI
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [isMobile, setIsMobile] = useState(false);
+    const [showSidebar, setShowSidebar] = useState(true);
+    const [cardsPerPage, setCardsPerPage] = useState(8);
+    
+    // Estados de filtros
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
-    const [visibilityFilter, setVisibilityFilter] = useState('');
-    const [showUploadModal, setShowUploadModal] = useState(false);
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
-    const [isMobile, setIsMobile] = useState(false);
-    const [cardsPerPage, setCardsPerPage] = useState(8);
-
+    
+    // Estados de modais
+    const [showPastaModal, setShowPastaModal] = useState(false);
+    const [pastaEditando, setPastaEditando] = useState<PastaCompartilhamento | undefined>();
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    
+    // Estados de drag & drop
+    const [draggedItem, setDraggedItem] = useState<ArquivoCompartilhado | null>(null);
+    const [dropTarget, setDropTarget] = useState<number | null>(null);
+    
+    // Upload form
     const [uploadForm, setUploadForm] = useState<UploadData>({
         nome: '',
         descricao: '',
         categoria: 'projeto',
-        publico: true
+        publico: true,
+        pasta: pastaAtual?.id
     });
+
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Detecta mobile e ajusta layout
+    // Layout responsivo
     useEffect(() => {
         const updateLayout = () => {
             const width = window.innerWidth;
+            const height = window.innerHeight;
             const mobile = width <= 768;
             
             setIsMobile(mobile);
+            setShowSidebar(!mobile);
             
             if (mobile) {
-                setCardsPerPage(6); // Mobile: 6 cards por página
-            } else if (width <= 1528) {
-                setCardsPerPage(8); // Desktop pequeno: 8 cards
+                setCardsPerPage(5);
+            } else if (width <= 1528 && height <= 834) {
+                setCardsPerPage(6);
+            } else if (width > 1900) {
+                setCardsPerPage(15);
             } else {
-                setCardsPerPage(12); // Desktop grande: 12 cards
+                setCardsPerPage(12);
             }
         };
 
@@ -83,74 +91,112 @@ export default function CompartilhamentoPage() {
         return () => window.removeEventListener('resize', updateLayout);
     }, []);
 
+    // Carregar dados iniciais
     useEffect(() => {
-        carregarArquivos();
+        carregarDados();
     }, []);
 
-    // Reset página quando filtros mudarem
+    // Atualizar form com pasta atual
     useEffect(() => {
-        setCurrentPage(1);
-    }, [searchTerm, categoryFilter, visibilityFilter, cardsPerPage]);
+        setUploadForm(prev => ({ ...prev, pasta: pastaAtual?.id }));
+    }, [pastaAtual]);
 
-    const carregarArquivos = async () => {
+    // Recarregar arquivos quando mudar pasta
+    useEffect(() => {
+        if (!loading) {
+            carregarArquivos();
+        }
+    }, [pastaAtual]);
+
+    // Carregar arquivos sem pasta na raiz
+    useEffect(() => {
+        const isRaiz = !pastaAtual;
+        if (isRaiz && !loading) {
+            carregarArquivosSemPasta().then(setArquivosSemPasta);
+        }
+    }, [pastaAtual, loading]);
+
+    // Funções de carregamento
+    const carregarDados = async () => {
         try {
             setLoading(true);
-            const data = await compartilhamentoAPI.buscarArquivos();
-            setArquivos(data);
+            const [arquivosData, pastasData] = await Promise.all([
+                compartilhamentoAPI.buscarArquivos(pastaAtual?.id),
+                pastaAPI.buscarHierarquia()
+            ]);
+            setArquivos(arquivosData);
+            setPastas(pastasData);
         } catch (err: any) {
-            setError(err.message || 'Erro ao carregar arquivos');
+            setError('Erro ao carregar dados');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
-        if (file.size > 100 * 1024 * 1024) {
-            setError('Arquivo muito grande. Máximo 100MB');
-            return;
+    const carregarArquivos = async () => {
+        try {
+            const arquivosData = await compartilhamentoAPI.buscarArquivos(pastaAtual?.id);
+            setArquivos(arquivosData);
+        } catch (err: any) {
+            setError('Erro ao carregar arquivos');
         }
-
-        setSelectedFile(file);
-        setUploadForm((prev: UploadData) => ({
-            ...prev,
-            nome: file.name.split('.')[0]
-        }));
-        setShowUploadModal(true);
     };
 
-    const handleUpload = async () => {
+    const carregarArquivosSemPasta = async () => {
+        try {
+            const arquivosSemPasta = await compartilhamentoAPI.buscarArquivos(null);
+            return arquivosSemPasta;
+        } catch (err: any) {
+            setError('Erro ao carregar arquivos sem pasta');
+            return [];
+        }
+    };
+
+    // Handlers de upload
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setSelectedFile(file);
+            setUploadForm(prev => ({ ...prev, nome: file.name.split('.')[0] }));
+        }
+    };
+
+    const handleUpload = async (e: React.FormEvent) => {
+        e.preventDefault();
         if (!selectedFile) return;
 
         try {
             setUploading(true);
             await compartilhamentoAPI.uploadArquivo(selectedFile, uploadForm);
-            setSuccess('Arquivo enviado com sucesso!');
-            setShowUploadModal(false);
+            setSuccess('Arquivo enviado!');
             setSelectedFile(null);
-            setUploadForm({ nome: '', descricao: '', categoria: 'projeto', publico: true });
+            setUploadForm({
+                nome: '',
+                descricao: '',
+                categoria: 'projeto',
+                publico: true,
+                pasta: pastaAtual?.id
+            });
+            fileInputRef.current!.value = '';
             await carregarArquivos();
         } catch (err: any) {
-            setError(err.message || 'Erro ao enviar arquivo');
+            setError('Erro no upload');
         } finally {
             setUploading(false);
         }
     };
 
+    // Handlers de arquivo
     const handleDownload = async (arquivo: ArquivoCompartilhado) => {
         try {
-            await compartilhamentoAPI.downloadArquivo(arquivo.id);
-            await carregarArquivos();
+            await compartilhamentoAPI.downloadArquivo(arquivo);
         } catch (err: any) {
-            setError('Erro ao baixar arquivo');
+            setError('Erro no download');
         }
     };
 
     const handleDelete = async (id: number) => {
-        if (!confirm('Excluir arquivo permanentemente?')) return;
-
+        if (!confirm('Excluir arquivo?')) return;
         try {
             await compartilhamentoAPI.deletarArquivo(id);
             setSuccess('Arquivo excluído!');
@@ -169,6 +215,100 @@ export default function CompartilhamentoPage() {
         }
     };
 
+    const toggleFavorito = async (arquivo: ArquivoCompartilhado) => {
+        try {
+            await compartilhamentoAPI.toggleFavorito(arquivo.id, !arquivo.favorito);
+            await carregarArquivos();
+        } catch (err: any) {
+            setError('Erro ao favoritar');
+        }
+    };
+
+    // Handlers de pasta
+    const handleSelectPasta = (pasta: PastaCompartilhamento | null) => {
+        setPastaAtual(pasta);
+        setCurrentPage(1);
+    };
+
+    const handleCreatePasta = () => {
+        setPastaEditando(undefined);
+        setShowPastaModal(true);
+    };
+
+    const handleEditPasta = (pasta: PastaCompartilhamento) => {
+        setPastaEditando(pasta);
+        setShowPastaModal(true);
+    };
+
+    const handleSavePasta = async (data: any) => {
+        try {
+            if (pastaEditando) {
+                await pastaAPI.atualizarPasta(pastaEditando.id, data);
+                setSuccess('Pasta atualizada!');
+            } else {
+                await pastaAPI.criarPasta(data);
+                setSuccess('Pasta criada!');
+            }
+            await carregarDados();
+        } catch (err: any) {
+            setError('Erro ao salvar pasta');
+        }
+    };
+
+    const handleDeletePasta = async (pasta: PastaCompartilhamento) => {
+        if (!confirm(`Excluir pasta "${pasta.nome}"?`)) return;
+        try {
+            await pastaAPI.deletarPasta(pasta.id);
+            setSuccess('Pasta excluída!');
+            if (pastaAtual?.id === pasta.id) {
+                setPastaAtual(null);
+            }
+            await carregarDados();
+        } catch (err: any) {
+            setError('Erro ao excluir pasta');
+        }
+    };
+
+    // Handlers de drag & drop
+    const handleDragStart = (arquivo: ArquivoCompartilhado) => {
+        setDraggedItem(arquivo);
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+    };
+
+    const handleDragEnter = (pastaId: number) => {
+        setDropTarget(pastaId);
+    };
+
+    const handleDragLeave = () => {
+        setDropTarget(null);
+    };
+
+    const handleDrop = async (pastaDestino: PastaCompartilhamento | null) => {
+        if (!draggedItem) return;
+        
+        try {
+            await compartilhamentoAPI.moverArquivo(draggedItem.id, pastaDestino?.id || null);
+            setSuccess(`Arquivo movido para ${pastaDestino?.nome || 'raiz'}!`);
+            
+            const isRaiz = !pastaAtual;
+            if (isRaiz) {
+                const novosArquivosSemPasta = await carregarArquivosSemPasta();
+                setArquivosSemPasta(novosArquivosSemPasta);
+            } else {
+                await carregarArquivos();
+            }
+        } catch (err: any) {
+            setError('Erro ao mover arquivo');
+        } finally {
+            setDraggedItem(null);
+            setDropTarget(null);
+        }
+    };
+
+    // Lógica de filtros e paginação
     const formatFileSize = (bytes: number): string => {
         if (!bytes) return '0 B';
         const k = 1024;
@@ -177,581 +317,335 @@ export default function CompartilhamentoPage() {
         return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
     };
 
-    const arquivosFiltrados = arquivos.filter(arquivo => {
-        const matchSearch = arquivo.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           arquivo.descricao?.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchCategory = !categoryFilter || arquivo.categoria === categoryFilter;
-        const matchVisibility = !visibilityFilter || 
-                               (visibilityFilter === 'publico' && arquivo.publico) ||
-                               (visibilityFilter === 'privado' && !arquivo.publico);
-        const hasPermission = isAdmin || arquivo.publico || arquivo.usuario.id === user?.id;
-        
-        return matchSearch && matchCategory && matchVisibility && hasPermission;
+    const isRaiz = !pastaAtual;
+    const itensParaMostrar = isRaiz ? [...pastas, ...arquivosSemPasta] : arquivos;
+
+    const itensFiltrados = itensParaMostrar.filter(item => {
+        if (isRaiz) {
+            if ('usuario' in item) {
+                const arquivo = item as ArquivoCompartilhado;
+                const matchSearch = arquivo.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                   arquivo.descricao?.toLowerCase().includes(searchTerm.toLowerCase());
+                const matchCategory = !categoryFilter || arquivo.categoria === categoryFilter;
+                const hasPermission = isAdmin || arquivo.publico || arquivo.usuario.id === user?.id;
+                return matchSearch && matchCategory && hasPermission;
+            } else {
+                const pasta = item as PastaCompartilhamento;
+                return pasta.nome.toLowerCase().includes(searchTerm.toLowerCase());
+            }
+        } else {
+            const arquivo = item as ArquivoCompartilhado;
+            const matchSearch = arquivo.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                               arquivo.descricao?.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchCategory = !categoryFilter || arquivo.categoria === categoryFilter;
+            const hasPermission = isAdmin || arquivo.publico || arquivo.usuario.id === user?.id;
+            return matchSearch && matchCategory && hasPermission;
+        }
     });
 
-    // Paginação
-    const totalPages = Math.ceil(arquivosFiltrados.length / cardsPerPage);
+    const totalPages = Math.ceil(itensFiltrados.length / cardsPerPage);
     const startIndex = (currentPage - 1) * cardsPerPage;
-    const paginatedArquivos = arquivosFiltrados.slice(startIndex, startIndex + cardsPerPage);
+    const paginatedItens = itensFiltrados.slice(startIndex, startIndex + cardsPerPage);
 
     const stats = {
-        total: arquivos.length,
-        publicos: arquivos.filter(a => a.publico).length,
-        totalSize: arquivos.reduce((acc, a) => acc + (a.tamanho || 0), 0),
-        totalDownloads: arquivos.reduce((acc, a) => acc + (a.downloads || 0), 0)
+        total: isRaiz ? pastas.length + arquivosSemPasta.length : arquivos.length,
+        publicos: isRaiz ? 
+            pastas.filter(p => p.publico).length + arquivosSemPasta.filter(a => a.publico).length : 
+            arquivos.filter(a => a.publico).length,
+        totalSize: isRaiz ? 
+            arquivosSemPasta.reduce((acc, a) => acc + (a.tamanho || 0), 0) : 
+            arquivos.reduce((acc, a) => acc + (a.tamanho || 0), 0),
+        totalDownloads: isRaiz ? 
+            arquivosSemPasta.reduce((acc, a) => acc + (a.downloads || 0), 0) : 
+            arquivos.reduce((acc, a) => acc + (a.downloads || 0), 0)
     };
 
-    if (loading && arquivos.length === 0) {
+    if (loading && itensParaMostrar.length === 0) {
         return (
             <div className="flex items-center justify-center h-screen">
                 <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
-                <span className="ml-2">Carregando arquivos...</span>
+                <span className="ml-2">Carregando...</span>
             </div>
         );
     }
 
     return (
         <div className={`h-full ${isMobile ? '' : 'lg:fixed lg:top-20 lg:left-0 lg:lg:left-64 lg:right-0 lg:bottom-0'} bg-white overflow-hidden`}>
-            <div className="h-full flex flex-col">
+            <div className="h-full flex">
                 
-                {/* Header */}
-                <div className={`flex-shrink-0 ${isMobile ? 'p-4' : 'p-3 sm:p-4 compactDesktop:p-3 customXl:p-6'} border-b border-gray-200`}>
-                    <div className={`flex ${isMobile ? 'flex-col space-y-4' : 'flex-col lg:flex-row lg:items-center justify-between space-y-3 lg:space-y-0'}`}>
-                        <div className="flex items-center space-x-2 sm:space-x-3">
-                            <div className="p-2 bg-primary-100 rounded-lg">
-                                <Share2 className={`${isMobile ? 'w-6 h-6' : 'w-5 h-5 sm:w-6 h-6'} text-primary-600`} />
-                            </div>
-                            <div>
-                                <h1 className={`${isMobile ? 'text-xl' : 'text-lg sm:text-xl'} font-bold text-gray-900`}>Compartilhamento</h1>
-                                <p className={`${isMobile ? 'text-sm' : 'text-xs sm:text-sm'} text-gray-600`}>
-                                    {stats.total} arquivos • {formatFileSize(stats.totalSize)} • {stats.totalDownloads} downloads
-                                </p>
+                {/* Sidebar */}
+                {showSidebar && (
+                    <div className={`${isMobile ? 'fixed inset-y-0 left-0 z-50 w-80 bg-white shadow-lg' : 'w-80'} border-r border-gray-200 flex flex-col`}>
+                        {/* Header Sidebar */}
+                        <div className="p-4 border-b border-gray-200">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                    <div className="p-2 bg-primary-100 rounded-lg">
+                                        <FolderPlus className="w-5 h-5 text-primary-600" />
+                                    </div>
+                                    <div>
+                                        <h2 className="font-semibold text-gray-900">Pastas</h2>
+                                        <p className="text-gray-600 text-sm">Organize seus arquivos</p>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex space-x-2">
+                                    {isAdmin && (
+                                        <button
+                                            onClick={handleCreatePasta}
+                                            className="p-1.5 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded"
+                                        >
+                                            <FolderPlus className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                    {isMobile && (
+                                        <button
+                                            onClick={() => setShowSidebar(false)}
+                                            className="p-1.5 text-gray-600 hover:bg-gray-100 rounded"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
                         
-                        <button
-                            onClick={() => fileInputRef.current?.click()}
-                            className={`bg-primary-500 hover:bg-primary-600 text-white ${isMobile ? 'px-4 py-3' : 'px-3 py-2 sm:px-4 py-2'} rounded-lg font-medium ${isMobile ? 'text-base' : 'text-sm'} transition-colors flex items-center justify-center`}
-                        >
-                            <Plus className="w-4 h-4 mr-1 sm:mr-2" />
-                            {isMobile ? 'Enviar Arquivo' : <><span className="hidden sm:inline">Enviar</span><span className="sm:hidden">Novo</span></>}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Filtros */}
-                <div className={`flex-shrink-0 ${isMobile ? 'p-4' : 'p-3 sm:p-4 compactDesktop:p-3 customXl:p-6'} border-b border-gray-100`}>
-                    <div className={`${isMobile ? 'space-y-3' : 'flex items-center space-x-2'}`}>
-                        {/* Search */}
-                        <div className={`${isMobile ? 'w-full' : 'flex-1 max-w-md'} relative`}>
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Buscar arquivos..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-200 focus:border-primary-500"
+                        <div className="flex-1 overflow-y-auto p-4">
+                            <PastaTreeView
+                                pastas={pastas}
+                                pastaAtual={pastaAtual}
+                                onSelectPasta={handleSelectPasta}
+                                onEditPasta={handleEditPasta}
+                                onDeletePasta={handleDeletePasta}
+                                isAdmin={isAdmin}
                             />
-                            {searchTerm && (
-                                <button
-                                    onClick={() => setSearchTerm('')}
-                                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                >
-                                    <X className="w-4 h-4" />
-                                </button>
-                            )}
                         </div>
 
-                        {/* Filtros */}
-                        {isMobile ? (
-                            <div className="grid grid-cols-2 gap-2">
+                        {/* Stats Sidebar */}
+                        <div className="p-4 border-t border-gray-200 bg-gray-50">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-white p-3 rounded-lg text-center shadow-sm">
+                                    <div className="text-xl font-bold text-primary-600">{pastas.length}</div>
+                                    <div className="text-xs text-gray-600">Pastas</div>
+                                </div>
+                                <div className="bg-white p-3 rounded-lg text-center shadow-sm">
+                                    <div className="text-xl font-bold text-primary-600">{arquivos.length}</div>
+                                    <div className="text-xs text-gray-600">Arquivos</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Conteúdo Principal */}
+                <div className="flex-1 flex flex-col overflow-hidden">
+                    
+                    {/* Header */}
+                    <HeaderComponent
+                        isMobile={isMobile}
+                        showSidebar={showSidebar}
+                        setShowSidebar={setShowSidebar}
+                        pastaAtual={pastaAtual}
+                        isRaiz={isRaiz}
+                        stats={stats}
+                        formatFileSize={formatFileSize}
+                        onUploadClick={() => fileInputRef.current?.click()}
+                    />
+
+                    {/* Filtros */}
+                    <div className={`flex-shrink-0 ${isMobile ? 'p-3' : 'p-4'} border-b border-gray-100`}>
+                        <div className={`${isMobile ? 'space-y-3' : 'flex items-center space-x-4'}`}>
+                            <div className={`${isMobile ? 'w-full' : 'flex-1 max-w-md'} relative`}>
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                <input
+                                    type="text"
+                                    placeholder={isRaiz ? "Buscar pastas e arquivos..." : "Buscar arquivos..."}
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                />
+                            </div>
+                            
+                            {!isRaiz && (
                                 <select
                                     value={categoryFilter}
                                     onChange={(e) => setCategoryFilter(e.target.value)}
-                                    className="px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-200"
+                                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                                 >
-                                    <option value="">Todas categorias</option>
+                                    <option value="">Todas Categorias</option>
                                     {categorias.map(cat => (
                                         <option key={cat.value} value={cat.value}>{cat.label}</option>
                                     ))}
                                 </select>
-
-                                <select
-                                    value={visibilityFilter}
-                                    onChange={(e) => setVisibilityFilter(e.target.value)}
-                                    className="px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-200"
-                                >
-                                    <option value="">Todos</option>
-                                    <option value="publico">Públicos</option>
-                                    <option value="privado">Privados</option>
-                                </select>
-                            </div>
-                        ) : (
-                            <div className="flex items-center space-x-2">
-                                <select
-                                    value={categoryFilter}
-                                    onChange={(e) => setCategoryFilter(e.target.value)}
-                                    className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-200"
-                                >
-                                    <option value="">Todas categorias</option>
-                                    {categorias.map(cat => (
-                                        <option key={cat.value} value={cat.value}>{cat.label}</option>
-                                    ))}
-                                </select>
-
-                                <select
-                                    value={visibilityFilter}
-                                    onChange={(e) => setVisibilityFilter(e.target.value)}
-                                    className="px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-primary-200"
-                                >
-                                    <option value="">Todos</option>
-                                    <option value="publico">Públicos</option>
-                                    <option value="privado">Privados</option>
-                                </select>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Stats */}
-                <div className={`flex-shrink-0 ${isMobile ? 'p-4' : 'p-3 sm:p-4 compactDesktop:p-3 customXl:p-6'} border-b border-gray-100`}>
-                    <div className="grid grid-cols-4 gap-2">
-                        <div className="bg-white p-2 rounded border text-center">
-                            <div className={`${isMobile ? 'text-lg' : 'text-base'} font-bold text-blue-600`}>{stats.total}</div>
-                            <div className="text-xs text-gray-600">Total</div>
-                        </div>
-                        <div className="bg-white p-2 rounded border text-center">
-                            <div className={`${isMobile ? 'text-lg' : 'text-base'} font-bold text-green-600`}>{stats.publicos}</div>
-                            <div className="text-xs text-gray-600">Públicos</div>
-                        </div>
-                        <div className="bg-white p-2 rounded border text-center">
-                            <div className={`${isMobile ? 'text-sm' : 'text-base'} font-bold text-purple-600`}>{isMobile ? formatFileSize(stats.totalSize).replace(' ', '') : formatFileSize(stats.totalSize)}</div>
-                            <div className="text-xs text-gray-600">Tamanho</div>
-                        </div>
-                        <div className="bg-white p-2 rounded border text-center">
-                            <div className={`${isMobile ? 'text-lg' : 'text-base'} font-bold text-orange-600`}>{stats.totalDownloads}</div>
-                            <div className="text-xs text-gray-600">Downloads</div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Error/Success Alerts */}
-                {(error || success) && (
-                    <div className={`flex-shrink-0 ${isMobile ? 'p-4' : 'p-3 sm:p-4'}`}>
-                        {error && (
-                            <div className="mb-2 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center text-sm">
-                                <AlertCircle className="w-4 h-4 text-red-600 mr-2" />
-                                <span className="text-red-700 flex-1">{error}</span>
-                                <button onClick={() => setError('')} className="ml-2">
-                                    <X className="w-4 h-4 text-red-600" />
-                                </button>
-                            </div>
-                        )}
-                        {success && (
-                            <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center text-sm">
-                                <CheckCircle className="w-4 h-4 text-green-600 mr-2" />
-                                <span className="text-green-700 flex-1">{success}</span>
-                                <button onClick={() => setSuccess('')} className="ml-2">
-                                    <X className="w-4 h-4 text-green-600" />
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Content */}
-                <div className={`flex-1 min-h-0 ${isMobile ? 'p-4 pb-20' : 'p-3 sm:p-4 pb-16'}`}>
-                    {arquivosFiltrados.length === 0 ? (
-                        <div className="h-full flex items-center justify-center">
-                            <div className="text-center">
-                                <Share2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                                <h3 className="text-xl font-medium text-gray-900 mb-2">Nenhum arquivo encontrado</h3>
-                                <p className="text-gray-600 mb-4">
-                                    {searchTerm || categoryFilter || visibilityFilter ? 
-                                        'Ajuste os filtros para ver mais arquivos' : 
-                                        'Comece enviando seu primeiro arquivo'
-                                    }
-                                </p>
-                                {!searchTerm && !categoryFilter && !visibilityFilter && (
-                                    <button
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                                    >
-                                        Enviar Arquivo
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="h-full flex flex-col">
-                            {/* Grid responsivo */}
-                            <div className="flex-1 overflow-y-auto pb-4">
-                                {isMobile ? (
-                                    /* Layout Mobile - Lista Vertical */
-                                    <div className="space-y-3">
-                                        {paginatedArquivos.map((arquivo) => {
-                                            const categoryInfo = categorias.find(c => c.value === arquivo.categoria);
-                                            const isOwner = arquivo.usuario.id === user?.id;
-
-                                            return (
-                                                <div key={arquivo.id} className="bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow p-4">
-                                                    {/* Header Mobile */}
-                                                    <div className="flex items-start justify-between mb-3">
-                                                        <div className="flex items-start space-x-3 flex-1">
-                                                            <div className="p-2 bg-primary-100 rounded-lg">
-                                                                {categoryInfo && <categoryInfo.icon className="w-5 h-5 text-primary-600" />}
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <h3 className="text-base font-semibold text-gray-900 truncate">{arquivo.nome}</h3>
-                                                                <p className="text-sm text-gray-500">{formatFileSize(arquivo.tamanho)}</p>
-                                                                <p className="text-xs text-gray-400 capitalize">{arquivo.categoria}</p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center space-x-1">
-                                                            {arquivo.publico ? (
-                                                                <Eye className="w-4 h-4 text-green-500" />
-                                                            ) : (
-                                                                <EyeOff className="w-4 h-4 text-orange-500" />
-                                                            )}
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Description */}
-                                                    {arquivo.descricao && (
-                                                        <p className="text-sm text-gray-600 mb-3 line-clamp-2">{arquivo.descricao}</p>
-                                                    )}
-
-                                                    {/* Meta info */}
-                                                    <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-                                                        <span>Por: {arquivo.usuario.nomecompleto}</span>
-                                                        <span>{new Date(arquivo.createdAt).toLocaleDateString('pt-PT')}</span>
-                                                    </div>
-
-                                                    {/* Actions */}
-                                                    <div className="flex space-x-2">
-                                                        <button
-                                                            onClick={() => handleDownload(arquivo)}
-                                                            className="flex-1 bg-blue-50 text-blue-700 py-2 px-3 rounded-lg hover:bg-blue-100 font-medium text-sm flex items-center justify-center"
-                                                        >
-                                                            <Download className="w-4 h-4 mr-1" />
-                                                            Download
-                                                        </button>
-                                                        
-                                                        {(isOwner || isAdmin) && (
-                                                            <>
-                                                                <button
-                                                                    onClick={() => toggleVisibility(arquivo)}
-                                                                    className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
-                                                                >
-                                                                    {arquivo.publico ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleDelete(arquivo.id)}
-                                                                    className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg"
-                                                                >
-                                                                    <Trash2 className="w-4 h-4" />
-                                                                </button>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                ) : (
-                                    /* Layout Desktop - Grid */
-                                    <div className={`grid gap-3 ${
-                                        cardsPerPage === 8 ? 'grid-cols-4 grid-rows-2' : 'grid-cols-4 grid-rows-3'
-                                    }`}>
-                                        {paginatedArquivos.map((arquivo) => {
-                                            const categoryInfo = categorias.find(c => c.value === arquivo.categoria);
-                                            const isOwner = arquivo.usuario.id === user?.id;
-
-                                            return (
-                                                <div key={arquivo.id} className="bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow p-4 flex flex-col">
-                                                    {/* Header */}
-                                                    <div className="flex items-center space-x-2 mb-3">
-                                                        <div className="p-2 bg-primary-100 rounded-lg">
-                                                            {categoryInfo && <categoryInfo.icon className="w-4 h-4 text-primary-600" />}
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <h3 className="text-sm font-semibold text-gray-900 truncate">{arquivo.nome}</h3>
-                                                            <p className="text-xs text-gray-500">{formatFileSize(arquivo.tamanho)}</p>
-                                                        </div>
-                                                        <div className="flex items-center">
-                                                            {arquivo.publico ? (
-                                                                <Eye className="w-4 h-4 text-green-500" />
-                                                            ) : (
-                                                                <EyeOff className="w-4 h-4 text-orange-500" />
-                                                            )}
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Category */}
-                                                    <div className="mb-3">
-                                                        <span className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded-full capitalize">
-                                                            {arquivo.categoria}
-                                                        </span>
-                                                    </div>
-
-                                                    {/* Description */}
-                                                    {arquivo.descricao && (
-                                                        <p className="text-xs text-gray-600 mb-3 line-clamp-2 flex-1">{arquivo.descricao}</p>
-                                                    )}
-
-                                                    {/* Meta */}
-                                                    <div className="text-xs text-gray-500 mb-3 space-y-1">
-                                                        <div className="flex items-center justify-between">
-                                                            <span>{new Date(arquivo.createdAt).toLocaleDateString('pt-PT')}</span>
-                                                            <span>{arquivo.downloads} downloads</span>
-                                                        </div>
-                                                        <div className="truncate">Por: {arquivo.usuario.nomecompleto}</div>
-                                                    </div>
-
-                                                    {/* Actions */}
-                                                    <div className="flex space-x-1 mt-auto pt-2 border-t border-gray-100">
-                                                        <button
-                                                            onClick={() => handleDownload(arquivo)}
-                                                            className="flex-1 bg-blue-50 text-blue-700 py-1 px-2 rounded text-xs hover:bg-blue-100 font-medium flex items-center justify-center"
-                                                        >
-                                                            <Download className="w-3 h-3 mr-1" />
-                                                            Download
-                                                        </button>
-                                                        
-                                                        {(isOwner || isAdmin) && (
-                                                            <>
-                                                                <button
-                                                                    onClick={() => toggleVisibility(arquivo)}
-                                                                    className="p-1 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded"
-                                                                >
-                                                                    {arquivo.publico ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleDelete(arquivo.id)}
-                                                                    className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded"
-                                                                >
-                                                                    <Trash2 className="w-3 h-3" />
-                                                                </button>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Paginação */}
-                {arquivosFiltrados.length > 0 && totalPages > 1 && (
-                    <div className={`fixed bottom-0 ${isMobile ? 'left-0 right-0' : 'left-0 lg:left-64 right-0'} bg-white border-t border-gray-200 shadow-lg z-30`}>
-                        <div className={`${isMobile ? 'p-3' : 'p-3 sm:p-4'}`}>
-                            {isMobile ? (
-                                /* Paginação Mobile */
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-600">
-                                        {startIndex + 1}-{Math.min(startIndex + cardsPerPage, arquivosFiltrados.length)} de {arquivosFiltrados.length}
-                                    </span>
-                                    
-                                    <div className="flex items-center space-x-1">
-                                        <button
-                                            onClick={() => setCurrentPage(Math.max(currentPage - 1, 1))}
-                                            disabled={currentPage === 1}
-                                            className="flex items-center px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50"
-                                        >
-                                            <ChevronLeft className="w-4 h-4" />
-                                        </button>
-
-                                        <span className="px-3 py-2 bg-primary-500 text-white rounded-lg text-sm font-bold min-w-16 text-center">
-                                            {currentPage}/{totalPages}
-                                        </span>
-
-                                        <button
-                                            onClick={() => setCurrentPage(Math.min(currentPage + 1, totalPages))}
-                                            disabled={currentPage >= totalPages}
-                                            className="flex items-center px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50"
-                                        >
-                                            <ChevronRight className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : (
-                                /* Paginação Desktop */
-                                <div className="flex items-center justify-between text-xs sm:text-sm">
-                                    <span className="text-gray-600">
-                                        {startIndex + 1}-{Math.min(startIndex + cardsPerPage, arquivosFiltrados.length)} de {arquivosFiltrados.length}
-                                    </span>
-                                    
-                                    <div className="flex items-center space-x-1 sm:space-x-2">
-                                        <button
-                                            onClick={() => setCurrentPage(1)}
-                                            disabled={currentPage === 1}
-                                            className="px-2 py-1 text-xs border rounded hover:bg-gray-50 disabled:opacity-50"
-                                        >
-                                            1ª
-                                        </button>
-                                        
-                                        <button
-                                            onClick={() => setCurrentPage(Math.max(currentPage - 1, 1))}
-                                            disabled={currentPage === 1}
-                                            className="flex items-center px-2 py-1 text-xs border rounded hover:bg-gray-50 disabled:opacity-50"
-                                        >
-                                            <ChevronLeft className="w-3 h-3" />
-                                        </button>
-
-                                        <span className="px-3 py-1 bg-primary-500 text-white rounded text-xs font-bold">
-                                            {currentPage}/{totalPages}
-                                        </span>
-
-                                        <button
-                                            onClick={() => setCurrentPage(Math.min(currentPage + 1, totalPages))}
-                                            disabled={currentPage >= totalPages}
-                                            className="flex items-center px-2 py-1 text-xs border rounded hover:bg-gray-50 disabled:opacity-50"
-                                        >
-                                            <ChevronRight className="w-3 h-3" />
-                                        </button>
-                                        
-                                        <button
-                                            onClick={() => setCurrentPage(totalPages)}
-                                            disabled={currentPage >= totalPages}
-                                            className="px-2 py-1 text-xs border rounded hover:bg-gray-50 disabled:opacity-50"
-                                        >
-                                            Últ
-                                        </button>
-                                    </div>
-                                </div>
                             )}
                         </div>
                     </div>
-                )}
+
+                    {/* Grid Principal */}
+                    <div className="flex-1 overflow-y-auto p-4 pb-20">
+                        <FileGrid
+                            items={paginatedItens}
+                            isRaiz={isRaiz}
+                            isMobile={isMobile}
+                            cardsPerPage={cardsPerPage}
+                            user={user}
+                            isAdmin={isAdmin}
+                            dropTarget={dropTarget}
+                            categorias={categorias}
+                            formatFileSize={formatFileSize}
+                            onDragStart={handleDragStart}
+                            onDragOver={handleDragOver}
+                            onDragEnter={handleDragEnter}
+                            onDragLeave={handleDragLeave}
+                            onDropPasta={handleDrop}
+                            onSelectPasta={handleSelectPasta}
+                            onToggleFavorito={toggleFavorito}
+                            onDownload={handleDownload}
+                            onToggleVisibility={toggleVisibility}
+                            onDelete={handleDelete}
+                        />
+                    </div>
+                </div>
             </div>
 
-            {/* Upload Modal */}
-            {showUploadModal && (
-                <div className="fixed inset-0 z-50 bg-black bg-opacity-50">
-                    <div className={`flex items-center justify-center min-h-screen ${isMobile ? 'p-4' : 'p-2 lg:p-4 lg:pl-72'}`}>
-                        <div className={`bg-white rounded-lg shadow-xl ${isMobile ? 'w-full max-w-sm' : 'w-full max-w-md lg:max-w-lg'} max-h-[90vh] overflow-hidden`}>
-                            {/* Header */}
-                            <div className="flex items-center justify-between p-4 border-b bg-gray-50">
-                                <h2 className="text-lg font-semibold text-gray-900">Enviar Arquivo</h2>
-                                <button
-                                    onClick={() => setShowUploadModal(false)}
-                                    className="p-1 hover:bg-gray-200 rounded transition-colors"
-                                >
-                                    <X className="w-5 h-5 text-gray-500" />
-                                </button>
-                            </div>
+            {/* Paginação */}
+            {itensFiltrados.length > 0 && totalPages > 1 && (
+                <div className={`fixed bottom-0 ${isMobile ? 'left-0 right-0' : 'left-0 lg:left-64 right-0'} bg-white border-t border-gray-200 shadow-lg z-30`}>
+                    <div className={`${isMobile ? 'p-3' : 'p-4'}`}>
+                        {isMobile ? (
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs text-gray-600">
+                                    {startIndex + 1}-{Math.min(startIndex + cardsPerPage, itensFiltrados.length)} de {itensFiltrados.length}
+                                </span>
+                                
+                                <div className="flex items-center space-x-1">
+                                    <button
+                                        onClick={() => setCurrentPage(Math.max(currentPage - 1, 1))}
+                                        disabled={currentPage === 1}
+                                        className="flex items-center px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                                    >
+                                        <ChevronLeft className="w-4 h-4" />
+                                    </button>
 
-                            {/* Content */}
-                            <div className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 120px)' }}>
-                                <div className="p-4 space-y-4">
-                                    {/* Selected File */}
-                                    {selectedFile && (
-                                        <div className="p-3 bg-blue-50 rounded-lg">
-                                            <div className="flex items-center">
-                                                <Archive className="w-5 h-5 text-blue-600 mr-2" />
-                                                <div>
-                                                    <div className="text-sm font-medium">{selectedFile.name}</div>
-                                                    <div className="text-xs text-gray-600">{formatFileSize(selectedFile.size)}</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
+                                    <span className="px-3 py-2 bg-primary-500 text-white rounded-lg text-sm font-bold min-w-16 text-center">
+                                        {currentPage}/{totalPages}
+                                    </span>
 
-                                    {/* Form */}
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
-                                        <input
-                                            type="text"
-                                            required
-                                            value={uploadForm.nome}
-                                            onChange={(e) => setUploadForm((prev: UploadData) => ({...prev, nome: e.target.value}))}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                                            placeholder="Nome do arquivo..."
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
-                                        <textarea
-                                            value={uploadForm.descricao}
-                                            onChange={(e) => setUploadForm((prev: UploadData) => ({...prev, descricao: e.target.value}))}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                                            rows={3}
-                                            placeholder="Descreva o arquivo..."
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
-                                        <select
-                                            value={uploadForm.categoria}
-                                            onChange={(e) => setUploadForm((prev: UploadData) => ({...prev, categoria: e.target.value}))}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                                        >
-                                            {categorias.map(cat => (
-                                                <option key={cat.value} value={cat.value}>{cat.label}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div className="flex items-center">
-                                        <input
-                                            type="checkbox"
-                                            id="publico"
-                                            checked={uploadForm.publico}
-                                            onChange={(e) => setUploadForm((prev: UploadData) => ({...prev, publico: e.target.checked}))}
-                                            className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                                        />
-                                        <label htmlFor="publico" className="ml-2 text-sm text-gray-700">
-                                            Disponível para toda a equipe
-                                        </label>
-                                    </div>
+                                    <button
+                                        onClick={() => setCurrentPage(Math.min(currentPage + 1, totalPages))}
+                                        disabled={currentPage >= totalPages}
+                                        className="flex items-center px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                                    >
+                                        <ChevronRight className="w-4 h-4" />
+                                    </button>
                                 </div>
                             </div>
+                        ) : (
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-gray-600">
+                                    {startIndex + 1}-{Math.min(startIndex + cardsPerPage, itensFiltrados.length)} de {itensFiltrados.length}
+                                </span>
+                                
+                                <div className="flex items-center space-x-2">
+                                    <button
+                                        onClick={() => setCurrentPage(1)}
+                                        disabled={currentPage === 1}
+                                        className="px-2 py-1 text-xs border rounded hover:bg-gray-50 disabled:opacity-50"
+                                    >
+                                        1ª
+                                    </button>
+                                    
+                                    <button
+                                        onClick={() => setCurrentPage(Math.max(currentPage - 1, 1))}
+                                        disabled={currentPage === 1}
+                                        className="flex items-center px-2 py-1 text-xs border rounded hover:bg-gray-50 disabled:opacity-50"
+                                    >
+                                        <ChevronLeft className="w-3 h-3" />
+                                    </button>
 
-                            {/* Footer */}
-                            <div className="flex justify-end space-x-3 p-4 border-t bg-gray-50">
-                                <button
-                                    onClick={() => setShowUploadModal(false)}
-                                    className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    onClick={handleUpload}
-                                    disabled={uploading || !uploadForm.nome}
-                                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center disabled:opacity-50 transition-colors"
-                                >
-                                    {uploading ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                            Enviando...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Upload className="w-4 h-4 mr-2" />
-                                            Enviar
-                                        </>
-                                    )}
-                                </button>
+                                    <span className="px-3 py-1 bg-primary-500 text-white rounded text-xs font-bold">
+                                        {currentPage}/{totalPages}
+                                    </span>
+
+                                    <button
+                                        onClick={() => setCurrentPage(Math.min(currentPage + 1, totalPages))}
+                                        disabled={currentPage >= totalPages}
+                                        className="flex items-center px-2 py-1 text-xs border rounded hover:bg-gray-50 disabled:opacity-50"
+                                    >
+                                        <ChevronRight className="w-3 h-3" />
+                                    </button>
+                                    
+                                    <button
+                                        onClick={() => setCurrentPage(totalPages)}
+                                        disabled={currentPage >= totalPages}
+                                        className="px-2 py-1 text-xs border rounded hover:bg-gray-50 disabled:opacity-50"
+                                    >
+                                        Últ
+                                    </button>
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 </div>
             )}
 
-            {/* Hidden file input */}
+            {/* Modais */}
+            <PastaModal
+                pasta={pastaEditando}
+                parentePastas={pastas}
+                isOpen={showPastaModal}
+                onClose={() => setShowPastaModal(false)}
+                onSave={handleSavePasta}
+            />
+
+            <UploadModal
+                isOpen={!!selectedFile}
+                selectedFile={selectedFile}
+                pastaAtual={pastaAtual}
+                uploading={uploading}
+                onClose={() => {
+                    setSelectedFile(null);
+                    fileInputRef.current!.value = '';
+                }}
+                onSubmit={handleUpload}
+                uploadForm={uploadForm}
+                setUploadForm={setUploadForm}
+                formatFileSize={formatFileSize}
+                categorias={categorias}
+            />
+
+            {/* Input oculto */}
             <input
                 ref={fileInputRef}
                 type="file"
-                accept=".zip,.rar,.7z,.tar,.gz,.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.mp4,.avi,.mov"
                 onChange={handleFileSelect}
                 className="hidden"
             />
+
+            {/* Alertas */}
+            {error && (
+                <div className="fixed top-4 right-4 bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded-lg shadow-lg z-50">
+                    <div className="flex items-center">
+                        <AlertCircle className="w-5 h-5 mr-2" />
+                        {error}
+                        <button onClick={() => setError('')} className="ml-2">
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {success && (
+                <div className="fixed top-4 right-4 bg-green-100 border border-green-300 text-green-700 px-4 py-3 rounded-lg shadow-lg z-50">
+                    <div className="flex items-center">
+                        <CheckCircle className="w-5 h-5 mr-2" />
+                        {success}
+                        <button onClick={() => setSuccess('')} className="ml-2">
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

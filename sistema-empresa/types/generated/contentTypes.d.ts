@@ -366,6 +366,7 @@ export interface ApiArquivoCompartilhadoArquivoCompartilhado
   extends Schema.CollectionType {
   collectionName: 'arquivo_compartilhados';
   info: {
+    description: '';
     displayName: 'arquivo-compartilhado';
     pluralName: 'arquivo-compartilhados';
     singularName: 'arquivo-compartilhado';
@@ -374,7 +375,20 @@ export interface ApiArquivoCompartilhadoArquivoCompartilhado
     draftAndPublish: true;
   };
   attributes: {
+    aprovado: Attribute.Boolean &
+      Attribute.Required &
+      Attribute.DefaultTo<true>;
     arquivo: Attribute.Media<'images' | 'files' | 'videos' | 'audios'>;
+    arquivo_compartilhados: Attribute.Relation<
+      'api::arquivo-compartilhado.arquivo-compartilhado',
+      'oneToMany',
+      'api::arquivo-compartilhado.arquivo-compartilhado'
+    >;
+    arquivo_original: Attribute.Relation<
+      'api::arquivo-compartilhado.arquivo-compartilhado',
+      'manyToOne',
+      'api::arquivo-compartilhado.arquivo-compartilhado'
+    >;
     categoria: Attribute.Enumeration<
       ['projeto', 'backup', 'documento', 'imagem', 'outro']
     >;
@@ -385,13 +399,22 @@ export interface ApiArquivoCompartilhadoArquivoCompartilhado
       'admin::user'
     > &
       Attribute.Private;
+    data_aprovacao: Attribute.Date;
     descricao: Attribute.Text;
     downloads: Attribute.Decimal & Attribute.DefaultTo<0>;
+    favorito: Attribute.Boolean & Attribute.DefaultTo<false>;
     nome: Attribute.String & Attribute.Required;
+    pasta: Attribute.Relation<
+      'api::arquivo-compartilhado.arquivo-compartilhado',
+      'manyToOne',
+      'api::pasta-compartilhamento.pasta-compartilhamento'
+    >;
     publico: Attribute.Boolean & Attribute.DefaultTo<true>;
     publishedAt: Attribute.DateTime;
+    tags: Attribute.String;
     tamanho: Attribute.Decimal;
     tipo: Attribute.String;
+    ultimo_acesso: Attribute.Date;
     updatedAt: Attribute.DateTime;
     updatedBy: Attribute.Relation<
       'api::arquivo-compartilhado.arquivo-compartilhado',
@@ -404,6 +427,8 @@ export interface ApiArquivoCompartilhadoArquivoCompartilhado
       'manyToOne',
       'plugin::users-permissions.user'
     >;
+    versao: Attribute.String;
+    visualizacoes: Attribute.Integer & Attribute.DefaultTo<0>;
   };
 }
 
@@ -491,6 +516,59 @@ export interface ApiDocumentoDocumento extends Schema.CollectionType {
     users_permissions_user: Attribute.Relation<
       'api::documento.documento',
       'oneToOne',
+      'plugin::users-permissions.user'
+    >;
+  };
+}
+
+export interface ApiPastaCompartilhamentoPastaCompartilhamento
+  extends Schema.CollectionType {
+  collectionName: 'pasta_compartilhamentos';
+  info: {
+    displayName: 'pasta-compartilhamento';
+    pluralName: 'pasta-compartilhamentos';
+    singularName: 'pasta-compartilhamento';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    arquivo_compartilhados: Attribute.Relation<
+      'api::pasta-compartilhamento.pasta-compartilhamento',
+      'oneToMany',
+      'api::arquivo-compartilhado.arquivo-compartilhado'
+    >;
+    ativo: Attribute.Boolean & Attribute.DefaultTo<true>;
+    cor: Attribute.String;
+    createdAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'api::pasta-compartilhamento.pasta-compartilhamento',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    descricao: Attribute.String;
+    icone: Attribute.String;
+    nome: Attribute.String & Attribute.Required;
+    ordem: Attribute.Integer;
+    pasta_pai: Attribute.Relation<
+      'api::pasta-compartilhamento.pasta-compartilhamento',
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    permissoes: Attribute.JSON;
+    publico: Attribute.Boolean & Attribute.DefaultTo<false>;
+    publishedAt: Attribute.DateTime;
+    updatedAt: Attribute.DateTime;
+    updatedBy: Attribute.Relation<
+      'api::pasta-compartilhamento.pasta-compartilhamento',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    usuario_proprietario: Attribute.Relation<
+      'api::pasta-compartilhamento.pasta-compartilhamento',
+      'manyToOne',
       'plugin::users-permissions.user'
     >;
   };
@@ -926,7 +1004,7 @@ export interface PluginUsersPermissionsUser extends Schema.CollectionType {
     draftAndPublish: false;
   };
   attributes: {
-    arquivo_compartilhados: Attribute.Relation<
+    aprovado_por: Attribute.Relation<
       'plugin::users-permissions.user',
       'oneToMany',
       'api::arquivo-compartilhado.arquivo-compartilhado'
@@ -966,6 +1044,11 @@ export interface PluginUsersPermissionsUser extends Schema.CollectionType {
       Attribute.SetMinMaxLength<{
         minLength: 6;
       }>;
+    pasta_compartilhamentos: Attribute.Relation<
+      'plugin::users-permissions.user',
+      'oneToMany',
+      'api::pasta-compartilhamento.pasta-compartilhamento'
+    >;
     provider: Attribute.String;
     registro_mensals: Attribute.Relation<
       'plugin::users-permissions.user',
@@ -1009,6 +1092,7 @@ declare module '@strapi/types' {
       'api::arquivo-compartilhado.arquivo-compartilhado': ApiArquivoCompartilhadoArquivoCompartilhado;
       'api::despesa.despesa': ApiDespesaDespesa;
       'api::documento.documento': ApiDocumentoDocumento;
+      'api::pasta-compartilhamento.pasta-compartilhamento': ApiPastaCompartilhamentoPastaCompartilhamento;
       'api::registro-mensal.registro-mensal': ApiRegistroMensalRegistroMensal;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;

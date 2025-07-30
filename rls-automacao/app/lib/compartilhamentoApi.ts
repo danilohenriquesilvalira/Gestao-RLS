@@ -1,5 +1,4 @@
-// lib/compartilhamentoApi.ts - API CORRIGIDA
-
+// app/lib/compartilhamentoApi.ts - ATUALIZADO COM TAILSCALE
 const getAPIUrl = () => {
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
@@ -36,6 +35,28 @@ export interface ArquivoCompartilhado {
         nomecompleto: string;
         email: string;
     };
+    pasta?: {
+        id: number;
+        nome: string;
+        cor?: string;
+        icone?: string;
+    };
+    tags?: string;
+    versao?: string;
+    arquivo_original?: {
+        id: number;
+        nome: string;
+        versao?: string;
+    };
+    aprovado: boolean;
+    aprovado_por?: {
+        id: number;
+        nomecompleto: string;
+    };
+    data_aprovacao?: string;
+    favorito: boolean;
+    visualizacoes: number;
+    ultimo_acesso?: string;
     createdAt: string;
     updatedAt: string;
 }
@@ -45,6 +66,9 @@ export interface UploadData {
     descricao?: string;
     categoria: string;
     publico: boolean;
+    pasta?: number;
+    tags?: string;
+    versao?: string;
 }
 
 class CompartilhamentoAPI {
@@ -62,6 +86,19 @@ class CompartilhamentoAPI {
             'Content-Type': 'application/json',
             ...(token && { Authorization: `Bearer ${token}` })
         };
+    }
+
+    private getCurrentUserId(): number {
+        try {
+            const userData = localStorage.getItem('user');
+            if (userData) {
+                const user = JSON.parse(userData);
+                return user.id;
+            }
+        } catch {
+            // ignore
+        }
+        return 0;
     }
 
     private normalizeArquivo(item: any): ArquivoCompartilhado {
@@ -94,13 +131,41 @@ class CompartilhamentoAPI {
             } : {
                 id: 0, nomecompleto: '', email: ''
             },
+            pasta: attrs.pasta?.data ? {
+                id: attrs.pasta.data.id,
+                nome: attrs.pasta.data.attributes.nome,
+                cor: attrs.pasta.data.attributes.cor,
+                icone: attrs.pasta.data.attributes.icone
+            } : undefined,
+            tags: attrs.tags || '',
+            versao: attrs.versao || '1.0',
+            arquivo_original: attrs.arquivo_original?.data ? {
+                id: attrs.arquivo_original.data.id,
+                nome: attrs.arquivo_original.data.attributes.nome,
+                versao: attrs.arquivo_original.data.attributes.versao
+            } : undefined,
+            aprovado: attrs.aprovado || false,
+            aprovado_por: attrs.aprovado_por?.data ? {
+                id: attrs.aprovado_por.data.id,
+                nomecompleto: attrs.aprovado_por.data.attributes.nomecompleto
+            } : undefined,
+            data_aprovacao: attrs.data_aprovacao || '',
+            favorito: attrs.favorito || false,
+            visualizacoes: attrs.visualizacoes || 0,
+            ultimo_acesso: attrs.ultimo_acesso || '',
             createdAt: attrs.createdAt || '',
             updatedAt: attrs.updatedAt || ''
         };
     }
 
-    async buscarArquivos(): Promise<ArquivoCompartilhado[]> {
-        const url = `${API_URL}/api/arquivo-compartilhados?populate[users_permissions_user]=*&populate[arquivo]=*&sort=createdAt:desc`;
+    async buscarArquivos(pastaId?: number): Promise<ArquivoCompartilhado[]> {
+        let url = `${API_URL}/api/arquivo-compartilhados?populate[users_permissions_user]=*&populate[arquivo]=*&populate[pasta]=*&populate[arquivo_original]=*&populate[aprovado_por]=*&sort=createdAt:desc`;
+        
+        if (pastaId) {
+            url += `&filters[pasta][id][$eq]=${pastaId}`;
+        } else if (pastaId === null) {
+            url += `&filters[pasta][$null]=true`;
+        }
 
         const response = await fetch(url, {
             headers: this.getHeaders()
@@ -146,7 +211,13 @@ class CompartilhamentoAPI {
                 publico: data.publico,
                 downloads: 0,
                 arquivo: uploadedFile.id,
-                users_permissions_user: userId
+                users_permissions_user: userId,
+                pasta: data.pasta || null,
+                tags: data.tags || '',
+                versao: data.versao || '1.0',
+                aprovado: false,
+                favorito: false,
+                visualizacoes: 0
             }
         };
 
@@ -164,16 +235,17 @@ class CompartilhamentoAPI {
         return this.normalizeArquivo(result.data);
     }
 
-    async downloadArquivo(id: number): Promise<void> {
-        // Buscar arquivo
-        const arquivo = await this.buscarArquivoPorId(id);
-        
+    async downloadArquivo(arquivo: ArquivoCompartilhado): Promise<void> {
         // Incrementar downloads
-        await fetch(`${API_URL}/api/arquivo-compartilhados/${id}`, {
+        await fetch(`${API_URL}/api/arquivo-compartilhados/${arquivo.id}`, {
             method: 'PUT',
             headers: this.getHeaders(),
             body: JSON.stringify({
-                data: { downloads: arquivo.downloads + 1 }
+                data: { 
+                    downloads: arquivo.downloads + 1,
+                    visualizacoes: arquivo.visualizacoes + 1,
+                    ultimo_acesso: new Date().toISOString()
+                }
             })
         });
 
@@ -185,8 +257,32 @@ class CompartilhamentoAPI {
         link.click();
     }
 
+    async moverArquivo(arquivoId: number, pastaId: number | null): Promise<void> {
+        const response = await fetch(`${API_URL}/api/arquivo-compartilhados/${arquivoId}`, {
+            method: 'PUT',
+            headers: this.getHeaders(),
+            body: JSON.stringify({ 
+                data: { pasta: pastaId } 
+            })
+        });
+
+        if (!response.ok) throw new Error('Erro ao mover arquivo');
+    }
+
+    async toggleFavorito(arquivoId: number, favorito: boolean): Promise<void> {
+        const response = await fetch(`${API_URL}/api/arquivo-compartilhados/${arquivoId}`, {
+            method: 'PUT',
+            headers: this.getHeaders(),
+            body: JSON.stringify({ 
+                data: { favorito } 
+            })
+        });
+
+        if (!response.ok) throw new Error('Erro ao atualizar favorito');
+    }
+
     async buscarArquivoPorId(id: number): Promise<ArquivoCompartilhado> {
-        const url = `${API_URL}/api/arquivo-compartilhados/${id}?populate[users_permissions_user]=*&populate[arquivo]=*`;
+        const url = `${API_URL}/api/arquivo-compartilhados/${id}?populate[users_permissions_user]=*&populate[arquivo]=*&populate[pasta]=*`;
         
         const response = await fetch(url, {
             headers: this.getHeaders()
@@ -223,19 +319,6 @@ class CompartilhamentoAPI {
         if (!response.ok) {
             throw new Error('Erro ao alterar visibilidade');
         }
-    }
-
-    private getCurrentUserId(): number {
-        try {
-            const userData = localStorage.getItem('user');
-            if (userData) {
-                const user = JSON.parse(userData);
-                return user.id;
-            }
-        } catch {
-            // ignore
-        }
-        return 0;
     }
 }
 

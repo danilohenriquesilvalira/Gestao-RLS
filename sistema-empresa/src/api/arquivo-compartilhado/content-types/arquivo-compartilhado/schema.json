@@ -4,7 +4,8 @@
   "info": {
     "singularName": "arquivo-compartilhado",
     "pluralName": "arquivo-compartilhados",
-    "displayName": "arquivo-compartilhado"
+    "displayName": "arquivo-compartilhado",
+    "description": ""
   },
   "options": {
     "draftAndPublish": true
@@ -43,20 +44,64 @@
       "default": 0
     },
     "arquivo": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
       "allowedTypes": [
         "images",
         "files",
         "videos",
         "audios"
-      ],
-      "type": "media",
-      "multiple": false
+      ]
     },
     "users_permissions_user": {
       "type": "relation",
       "relation": "manyToOne",
       "target": "plugin::users-permissions.user",
+      "inversedBy": "aprovado_por"
+    },
+    "pasta": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::pasta-compartilhamento.pasta-compartilhamento",
       "inversedBy": "arquivo_compartilhados"
+    },
+    "tags": {
+      "type": "string"
+    },
+    "versao": {
+      "type": "string"
+    },
+    "arquivo_original": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::arquivo-compartilhado.arquivo-compartilhado",
+      "inversedBy": "arquivo_compartilhados"
+    },
+    "arquivo_compartilhados": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::arquivo-compartilhado.arquivo-compartilhado",
+      "mappedBy": "arquivo_original"
+    },
+    "aprovado": {
+      "type": "boolean",
+      "default": true,
+      "required": true
+    },
+    "data_aprovacao": {
+      "type": "date"
+    },
+    "favorito": {
+      "type": "boolean",
+      "default": false
+    },
+    "visualizacoes": {
+      "type": "integer",
+      "default": 0
+    },
+    "ultimo_acesso": {
+      "type": "date"
     }
   }
 }

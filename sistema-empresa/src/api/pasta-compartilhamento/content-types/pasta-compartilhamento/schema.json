@@ -1,0 +1,61 @@
+{
+  "kind": "collectionType",
+  "collectionName": "pasta_compartilhamentos",
+  "info": {
+    "singularName": "pasta-compartilhamento",
+    "pluralName": "pasta-compartilhamentos",
+    "displayName": "pasta-compartilhamento"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "nome": {
+      "type": "string",
+      "required": true
+    },
+    "descricao": {
+      "type": "string",
+      "required": false
+    },
+    "cor": {
+      "type": "string"
+    },
+    "icone": {
+      "type": "string"
+    },
+    "pasta_pai": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "pasta_compartilhamentos"
+    },
+    "usuario_proprietario": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "pasta_compartilhamentos"
+    },
+    "publico": {
+      "type": "boolean",
+      "default": false
+    },
+    "permissoes": {
+      "type": "json"
+    },
+    "ordem": {
+      "type": "integer"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true
+    },
+    "arquivo_compartilhados": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::arquivo-compartilhado.arquivo-compartilhado",
+      "mappedBy": "pasta"
+    }
+  }
+}

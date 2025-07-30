@@ -114,7 +114,13 @@
       "target": "api::registro-mensal.registro-mensal",
       "mappedBy": "aprovado_por"
     },
-    "arquivo_compartilhados": {
+    "pasta_compartilhamentos": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::pasta-compartilhamento.pasta-compartilhamento",
+      "mappedBy": "usuario_proprietario"
+    },
+    "aprovado_por": {
       "type": "relation",
       "relation": "oneToMany",
       "target": "api::arquivo-compartilhado.arquivo-compartilhado",
