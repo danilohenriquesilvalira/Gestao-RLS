@@ -43,10 +43,10 @@ export default function DespesasGrid({
     }
 
     return (
-        <div className="flex-1 overflow-y-auto pb-4">
+        <div className="flex-1 overflow-y-auto">
             {isMobile ? (
                 /* Layout Mobile - Lista Vertical */
-                <div className="space-y-3">
+                <div className="space-y-3 pb-4">
                     {filteredDespesas.map((despesa) => (
                         <DespesaCard
                             key={despesa.id}
@@ -60,11 +60,10 @@ export default function DespesasGrid({
                     ))}
                 </div>
             ) : (
-                /* Layout Desktop - Grid */
-                <div className={`grid gap-3 ${
-                    cardsPerPage === 6 ? 'grid-cols-3 grid-rows-2' :
-                    cardsPerPage === 12 ? 'grid-cols-4 grid-rows-3' :
-                    'grid-cols-5 grid-rows-3'
+                /* Layout Desktop - Grid Responsivo */
+                <div className={`grid gap-3 pb-4 ${
+                    cardsPerPage === 8 ? 'grid-cols-4 grid-rows-2' :
+                    'grid-cols-4 grid-rows-3'
                 }`}>
                     {filteredDespesas.map((despesa) => (
                         <DespesaCard

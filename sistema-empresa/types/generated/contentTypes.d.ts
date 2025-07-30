@@ -525,6 +525,7 @@ export interface ApiPastaCompartilhamentoPastaCompartilhamento
   extends Schema.CollectionType {
   collectionName: 'pasta_compartilhamentos';
   info: {
+    description: '';
     displayName: 'pasta-compartilhamento';
     pluralName: 'pasta-compartilhamentos';
     singularName: 'pasta-compartilhamento';
@@ -551,14 +552,24 @@ export interface ApiPastaCompartilhamentoPastaCompartilhamento
     icone: Attribute.String;
     nome: Attribute.String & Attribute.Required;
     ordem: Attribute.Integer;
+    pasta_compartilhamentos: Attribute.Relation<
+      'api::pasta-compartilhamento.pasta-compartilhamento',
+      'oneToMany',
+      'api::pasta-compartilhamento.pasta-compartilhamento'
+    >;
     pasta_pai: Attribute.Relation<
       'api::pasta-compartilhamento.pasta-compartilhamento',
       'manyToOne',
-      'plugin::users-permissions.user'
+      'api::pasta-compartilhamento.pasta-compartilhamento'
     >;
     permissoes: Attribute.JSON;
     publico: Attribute.Boolean & Attribute.DefaultTo<false>;
     publishedAt: Attribute.DateTime;
+    subpastas: Attribute.Relation<
+      'api::pasta-compartilhamento.pasta-compartilhamento',
+      'manyToOne',
+      'api::pasta-compartilhamento.pasta-compartilhamento'
+    >;
     updatedAt: Attribute.DateTime;
     updatedBy: Attribute.Relation<
       'api::pasta-compartilhamento.pasta-compartilhamento',

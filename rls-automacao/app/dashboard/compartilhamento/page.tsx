@@ -1,7 +1,7 @@
-// app/dashboard/compartilhamento/page.tsx - REFATORADO
+// app/dashboard/compartilhamento/page.tsx - CORRIGIDO COM ATUALIZAÇÕES AUTOMÁTICAS
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { compartilhamentoAPI, ArquivoCompartilhado, UploadData } from '@/lib/compartilhamentoApi';
 import { pastaAPI, PastaCompartilhamento } from '@/lib/pastaApi';
 import { useAuth } from '@/hooks/useAuth';
@@ -48,6 +48,7 @@ export default function CompartilhamentoPage() {
     // Estados de modais
     const [showPastaModal, setShowPastaModal] = useState(false);
     const [pastaEditando, setPastaEditando] = useState<PastaCompartilhamento | undefined>();
+    const [pastaPai, setPastaPai] = useState<PastaCompartilhamento | undefined>(); // Para subpastas
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     
     // Estados de drag & drop
@@ -64,6 +65,52 @@ export default function CompartilhamentoPage() {
     });
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // FUNÇÕES DE CARREGAMENTO OTIMIZADAS
+    const carregarPastas = useCallback(async () => {
+        try {
+            const pastasData = await pastaAPI.buscarHierarquia();
+            setPastas(pastasData);
+            return pastasData;
+        } catch (err) {
+            setError('Erro ao carregar pastas');
+            return [];
+        }
+    }, []);
+
+    const carregarArquivos = useCallback(async (pastaId?: number | null) => {
+        try {
+            const arquivosData = await compartilhamentoAPI.buscarArquivos(pastaId);
+            if (pastaId === null) {
+                setArquivosSemPasta(arquivosData);
+            } else {
+                setArquivos(arquivosData);
+            }
+            return arquivosData;
+        } catch (err) {
+            setError('Erro ao carregar arquivos');
+            return [];
+        }
+    }, []);
+
+    const carregarDados = useCallback(async () => {
+        setLoading(true);
+        try {
+            const [pastasData] = await Promise.all([
+                carregarPastas(),
+                carregarArquivos(pastaAtual?.id)
+            ]);
+            
+            // Se está na raiz, carrega arquivos sem pasta
+            if (!pastaAtual) {
+                await carregarArquivos(null);
+            }
+        } catch (err) {
+            setError('Erro ao carregar dados');
+        } finally {
+            setLoading(false);
+        }
+    }, [pastaAtual?.id, carregarPastas, carregarArquivos]);
 
     // Layout responsivo
     useEffect(() => {
@@ -94,65 +141,76 @@ export default function CompartilhamentoPage() {
     // Carregar dados iniciais
     useEffect(() => {
         carregarDados();
-    }, []);
+    }, [carregarDados]);
 
     // Atualizar form com pasta atual
     useEffect(() => {
         setUploadForm(prev => ({ ...prev, pasta: pastaAtual?.id }));
     }, [pastaAtual]);
 
-    // Recarregar arquivos quando mudar pasta
-    useEffect(() => {
-        if (!loading) {
-            carregarArquivos();
-        }
-    }, [pastaAtual]);
+    // HANDLERS DE PASTA - NAVEGAÇÃO SUAVE SEM RECARREGAR TUDO
+    const handleSelectPasta = useCallback((pasta: PastaCompartilhamento | null) => {
+        setPastaAtual(pasta);
+        setCurrentPage(1);
+    }, []);
 
-    // Carregar arquivos sem pasta na raiz
-    useEffect(() => {
-        const isRaiz = !pastaAtual;
-        if (isRaiz && !loading) {
-            carregarArquivosSemPasta().then(setArquivosSemPasta);
-        }
-    }, [pastaAtual, loading]);
+    const handleCreatePasta = () => {
+        setPastaEditando(undefined);
+        setPastaPai(undefined);
+        setShowPastaModal(true);
+    };
 
-    // Funções de carregamento
-    const carregarDados = async () => {
+    const handleCreateSubpasta = (pastaPaiParam: PastaCompartilhamento) => {
+        setPastaEditando(undefined);
+        setPastaPai(pastaPaiParam);
+        setShowPastaModal(true);
+    };
+
+    const handleEditPasta = (pasta: PastaCompartilhamento) => {
+        setPastaEditando(pasta);
+        setPastaPai(undefined);
+        setShowPastaModal(true);
+    };
+
+    const handleSavePasta = async (data: any) => {
         try {
-            setLoading(true);
-            const [arquivosData, pastasData] = await Promise.all([
-                compartilhamentoAPI.buscarArquivos(pastaAtual?.id),
-                pastaAPI.buscarHierarquia()
-            ]);
-            setArquivos(arquivosData);
-            setPastas(pastasData);
-        } catch (err: any) {
-            setError('Erro ao carregar dados');
-        } finally {
-            setLoading(false);
+            if (pastaEditando) {
+                await pastaAPI.atualizarPasta(pastaEditando.id, data);
+                setSuccess('Pasta atualizada!');
+            } else {
+                await pastaAPI.criarPasta(data);
+                setSuccess(pastaPai ? 'Subpasta criada!' : 'Pasta criada!');
+            }
+            
+            // Recarregar pastas imediatamente
+            await carregarPastas();
+            
+        } catch (err) {
+            setError('Erro ao salvar pasta');
+            throw err;
         }
     };
 
-    const carregarArquivos = async () => {
+    const handleDeletePasta = async (pasta: PastaCompartilhamento) => {
+        if (!confirm(`Excluir pasta "${pasta.nome}"?`)) return;
+        
         try {
-            const arquivosData = await compartilhamentoAPI.buscarArquivos(pastaAtual?.id);
-            setArquivos(arquivosData);
-        } catch (err: any) {
-            setError('Erro ao carregar arquivos');
+            await pastaAPI.deletarPasta(pasta.id);
+            setSuccess('Pasta excluída!');
+            
+            if (pastaAtual?.id === pasta.id) {
+                setPastaAtual(null);
+            }
+            
+            // Recarregar dados imediatamente
+            await carregarPastas();
+            
+        } catch (err) {
+            setError('Erro ao excluir pasta');
         }
     };
 
-    const carregarArquivosSemPasta = async () => {
-        try {
-            const arquivosSemPasta = await compartilhamentoAPI.buscarArquivos(null);
-            return arquivosSemPasta;
-        } catch (err: any) {
-            setError('Erro ao carregar arquivos sem pasta');
-            return [];
-        }
-    };
-
-    // Handlers de upload
+    // HANDLERS DE UPLOAD - CORRIGIDOS
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
@@ -169,6 +227,8 @@ export default function CompartilhamentoPage() {
             setUploading(true);
             await compartilhamentoAPI.uploadArquivo(selectedFile, uploadForm);
             setSuccess('Arquivo enviado!');
+            
+            // Reset form
             setSelectedFile(null);
             setUploadForm({
                 nome: '',
@@ -178,30 +238,58 @@ export default function CompartilhamentoPage() {
                 pasta: pastaAtual?.id
             });
             fileInputRef.current!.value = '';
-            await carregarArquivos();
-        } catch (err: any) {
+            
+            // Recarregar arquivos imediatamente
+            await carregarArquivos(pastaAtual?.id);
+            if (!pastaAtual) {
+                await carregarArquivos(null);
+            }
+            
+        } catch (err) {
             setError('Erro no upload');
         } finally {
             setUploading(false);
         }
     };
 
-    // Handlers de arquivo
+    // HANDLERS DE ARQUIVO - CORRIGIDOS
     const handleDownload = async (arquivo: ArquivoCompartilhado) => {
         try {
             await compartilhamentoAPI.downloadArquivo(arquivo);
-        } catch (err: any) {
+            // Atualizar contador sem recarregar toda lista
+            const isRaiz = !pastaAtual;
+            if (isRaiz) {
+                setArquivosSemPasta(prev => 
+                    prev.map(a => a.id === arquivo.id ? 
+                        {...a, downloads: a.downloads + 1, visualizacoes: a.visualizacoes + 1} : a
+                    )
+                );
+            } else {
+                setArquivos(prev => 
+                    prev.map(a => a.id === arquivo.id ? 
+                        {...a, downloads: a.downloads + 1, visualizacoes: a.visualizacoes + 1} : a
+                    )
+                );
+            }
+        } catch (err) {
             setError('Erro no download');
         }
     };
 
     const handleDelete = async (id: number) => {
         if (!confirm('Excluir arquivo?')) return;
+        
         try {
             await compartilhamentoAPI.deletarArquivo(id);
             setSuccess('Arquivo excluído!');
-            await carregarArquivos();
-        } catch (err: any) {
+            
+            // Recarregar arquivos imediatamente
+            await carregarArquivos(pastaAtual?.id);
+            if (!pastaAtual) {
+                await carregarArquivos(null);
+            }
+            
+        } catch (err) {
             setError('Erro ao excluir arquivo');
         }
     };
@@ -209,8 +297,20 @@ export default function CompartilhamentoPage() {
     const toggleVisibility = async (arquivo: ArquivoCompartilhado) => {
         try {
             await compartilhamentoAPI.alterarVisibilidade(arquivo.id, !arquivo.publico);
-            await carregarArquivos();
-        } catch (err: any) {
+            
+            // Atualizar estado local imediatamente
+            const isRaiz = !pastaAtual;
+            if (isRaiz) {
+                setArquivosSemPasta(prev => 
+                    prev.map(a => a.id === arquivo.id ? {...a, publico: !a.publico} : a)
+                );
+            } else {
+                setArquivos(prev => 
+                    prev.map(a => a.id === arquivo.id ? {...a, publico: !a.publico} : a)
+                );
+            }
+            
+        } catch (err) {
             setError('Erro ao alterar visibilidade');
         }
     };
@@ -218,58 +318,25 @@ export default function CompartilhamentoPage() {
     const toggleFavorito = async (arquivo: ArquivoCompartilhado) => {
         try {
             await compartilhamentoAPI.toggleFavorito(arquivo.id, !arquivo.favorito);
-            await carregarArquivos();
-        } catch (err: any) {
+            
+            // Atualizar estado local imediatamente
+            const isRaiz = !pastaAtual;
+            if (isRaiz) {
+                setArquivosSemPasta(prev => 
+                    prev.map(a => a.id === arquivo.id ? {...a, favorito: !a.favorito} : a)
+                );
+            } else {
+                setArquivos(prev => 
+                    prev.map(a => a.id === arquivo.id ? {...a, favorito: !a.favorito} : a)
+                );
+            }
+            
+        } catch (err) {
             setError('Erro ao favoritar');
         }
     };
 
-    // Handlers de pasta
-    const handleSelectPasta = (pasta: PastaCompartilhamento | null) => {
-        setPastaAtual(pasta);
-        setCurrentPage(1);
-    };
-
-    const handleCreatePasta = () => {
-        setPastaEditando(undefined);
-        setShowPastaModal(true);
-    };
-
-    const handleEditPasta = (pasta: PastaCompartilhamento) => {
-        setPastaEditando(pasta);
-        setShowPastaModal(true);
-    };
-
-    const handleSavePasta = async (data: any) => {
-        try {
-            if (pastaEditando) {
-                await pastaAPI.atualizarPasta(pastaEditando.id, data);
-                setSuccess('Pasta atualizada!');
-            } else {
-                await pastaAPI.criarPasta(data);
-                setSuccess('Pasta criada!');
-            }
-            await carregarDados();
-        } catch (err: any) {
-            setError('Erro ao salvar pasta');
-        }
-    };
-
-    const handleDeletePasta = async (pasta: PastaCompartilhamento) => {
-        if (!confirm(`Excluir pasta "${pasta.nome}"?`)) return;
-        try {
-            await pastaAPI.deletarPasta(pasta.id);
-            setSuccess('Pasta excluída!');
-            if (pastaAtual?.id === pasta.id) {
-                setPastaAtual(null);
-            }
-            await carregarDados();
-        } catch (err: any) {
-            setError('Erro ao excluir pasta');
-        }
-    };
-
-    // Handlers de drag & drop
+    // HANDLERS DE DRAG & DROP - CORRIGIDOS
     const handleDragStart = (arquivo: ArquivoCompartilhado) => {
         setDraggedItem(arquivo);
     };
@@ -293,14 +360,13 @@ export default function CompartilhamentoPage() {
             await compartilhamentoAPI.moverArquivo(draggedItem.id, pastaDestino?.id || null);
             setSuccess(`Arquivo movido para ${pastaDestino?.nome || 'raiz'}!`);
             
-            const isRaiz = !pastaAtual;
-            if (isRaiz) {
-                const novosArquivosSemPasta = await carregarArquivosSemPasta();
-                setArquivosSemPasta(novosArquivosSemPasta);
-            } else {
-                await carregarArquivos();
+            // Recarregar dados imediatamente
+            await carregarArquivos(pastaAtual?.id);
+            if (!pastaAtual) {
+                await carregarArquivos(null);
             }
-        } catch (err: any) {
+            
+        } catch (err) {
             setError('Erro ao mover arquivo');
         } finally {
             setDraggedItem(null);
@@ -360,6 +426,21 @@ export default function CompartilhamentoPage() {
             arquivos.reduce((acc, a) => acc + (a.downloads || 0), 0)
     };
 
+    // Auto-hide alerts
+    useEffect(() => {
+        if (error) {
+            const timer = setTimeout(() => setError(''), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [error]);
+
+    useEffect(() => {
+        if (success) {
+            const timer = setTimeout(() => setSuccess(''), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [success]);
+
     if (loading && itensParaMostrar.length === 0) {
         return (
             <div className="flex items-center justify-center h-screen">
@@ -417,6 +498,7 @@ export default function CompartilhamentoPage() {
                                 onSelectPasta={handleSelectPasta}
                                 onEditPasta={handleEditPasta}
                                 onDeletePasta={handleDeletePasta}
+                                onCreateSubpasta={handleCreateSubpasta}
                                 isAdmin={isAdmin}
                             />
                         </div>
@@ -429,7 +511,7 @@ export default function CompartilhamentoPage() {
                                     <div className="text-xs text-gray-600">Pastas</div>
                                 </div>
                                 <div className="bg-white p-3 rounded-lg text-center shadow-sm">
-                                    <div className="text-xl font-bold text-primary-600">{arquivos.length}</div>
+                                    <div className="text-xl font-bold text-primary-600">{isRaiz ? arquivosSemPasta.length : arquivos.length}</div>
                                     <div className="text-xs text-gray-600">Arquivos</div>
                                 </div>
                             </div>
@@ -592,9 +674,14 @@ export default function CompartilhamentoPage() {
             {/* Modais */}
             <PastaModal
                 pasta={pastaEditando}
+                pastaPai={pastaPai}
                 parentePastas={pastas}
                 isOpen={showPastaModal}
-                onClose={() => setShowPastaModal(false)}
+                onClose={() => {
+                    setShowPastaModal(false);
+                    setPastaEditando(undefined);
+                    setPastaPai(undefined);
+                }}
                 onSave={handleSavePasta}
             />
 
