@@ -362,6 +362,51 @@ export interface AdminUser extends Schema.CollectionType {
   };
 }
 
+export interface ApiArquivoCompartilhadoArquivoCompartilhado
+  extends Schema.CollectionType {
+  collectionName: 'arquivo_compartilhados';
+  info: {
+    displayName: 'arquivo-compartilhado';
+    pluralName: 'arquivo-compartilhados';
+    singularName: 'arquivo-compartilhado';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    arquivo: Attribute.Media<'images' | 'files' | 'videos' | 'audios'>;
+    categoria: Attribute.Enumeration<
+      ['projeto', 'backup', 'documento', 'imagem', 'outro']
+    >;
+    createdAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'api::arquivo-compartilhado.arquivo-compartilhado',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    descricao: Attribute.Text;
+    downloads: Attribute.Decimal & Attribute.DefaultTo<0>;
+    nome: Attribute.String & Attribute.Required;
+    publico: Attribute.Boolean & Attribute.DefaultTo<true>;
+    publishedAt: Attribute.DateTime;
+    tamanho: Attribute.Decimal;
+    tipo: Attribute.String;
+    updatedAt: Attribute.DateTime;
+    updatedBy: Attribute.Relation<
+      'api::arquivo-compartilhado.arquivo-compartilhado',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    users_permissions_user: Attribute.Relation<
+      'api::arquivo-compartilhado.arquivo-compartilhado',
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+  };
+}
+
 export interface ApiDespesaDespesa extends Schema.CollectionType {
   collectionName: 'despesas';
   info: {
@@ -881,6 +926,11 @@ export interface PluginUsersPermissionsUser extends Schema.CollectionType {
     draftAndPublish: false;
   };
   attributes: {
+    arquivo_compartilhados: Attribute.Relation<
+      'plugin::users-permissions.user',
+      'oneToMany',
+      'api::arquivo-compartilhado.arquivo-compartilhado'
+    >;
     blocked: Attribute.Boolean & Attribute.DefaultTo<false>;
     cargo: Attribute.String & Attribute.Required;
     confirmationToken: Attribute.String & Attribute.Private;
@@ -956,6 +1006,7 @@ declare module '@strapi/types' {
       'admin::transfer-token': AdminTransferToken;
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
+      'api::arquivo-compartilhado.arquivo-compartilhado': ApiArquivoCompartilhadoArquivoCompartilhado;
       'api::despesa.despesa': ApiDespesaDespesa;
       'api::documento.documento': ApiDocumentoDocumento;
       'api::registro-mensal.registro-mensal': ApiRegistroMensalRegistroMensal;

@@ -1,5 +1,3 @@
-// sistema-empresa/config/middlewares.ts
-
 export default [
   'strapi::logger',
   'strapi::errors',
@@ -22,12 +20,19 @@ export default [
     config: {
       enabled: true,
       headers: '*',
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
       origin: [
         'http://localhost:3000',
         'http://localhost:3001', 
         'http://127.0.0.1:3000',
         'http://127.0.0.1:3001',
-        // Adicione aqui outros domínios se necessário
+        // Tailscale IPs
+        'http://100.77.52.45:3000',
+        'http://100.77.52.45:3001',
+        'http://100.77.98.73:3000',
+        'http://100.77.98.73:3001',
+        // Regex para qualquer IP Tailscale
+        /^http:\/\/100\.\d{1,3}\.\d{1,3}\.\d{1,3}:(3000|3001)$/
       ]
     }
   },

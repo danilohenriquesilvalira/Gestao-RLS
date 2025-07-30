@@ -1,0 +1,62 @@
+{
+  "kind": "collectionType",
+  "collectionName": "arquivo_compartilhados",
+  "info": {
+    "singularName": "arquivo-compartilhado",
+    "pluralName": "arquivo-compartilhados",
+    "displayName": "arquivo-compartilhado"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "nome": {
+      "type": "string",
+      "required": true
+    },
+    "tipo": {
+      "type": "string"
+    },
+    "tamanho": {
+      "type": "decimal"
+    },
+    "descricao": {
+      "type": "text"
+    },
+    "categoria": {
+      "type": "enumeration",
+      "enum": [
+        "projeto",
+        "backup",
+        "documento",
+        "imagem",
+        "outro"
+      ]
+    },
+    "publico": {
+      "type": "boolean",
+      "default": true
+    },
+    "downloads": {
+      "type": "decimal",
+      "default": 0
+    },
+    "arquivo": {
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ],
+      "type": "media",
+      "multiple": false
+    },
+    "users_permissions_user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "arquivo_compartilhados"
+    }
+  }
+}

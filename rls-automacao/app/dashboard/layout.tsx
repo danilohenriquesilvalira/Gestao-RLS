@@ -11,7 +11,8 @@ import {
   Home,
   Receipt,
   FileText,
-  Clock, // ÍCONE PARA PONTO
+  Clock,
+  Share2, // ÍCONE PARA COMPARTILHAMENTO
   User as UserIcon,
   LogOut,
   Loader2,
@@ -39,7 +40,8 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
   { name: 'Despesas', href: '/dashboard/despesas', icon: Receipt },
   { name: 'Documentos', href: '/dashboard/documentos', icon: FileText },
-  { name: 'Ponto', href: '/dashboard/ponto', icon: Clock }, // ADICIONADO PONTO
+  { name: 'Ponto', href: '/dashboard/ponto', icon: Clock },
+  { name: 'Compartilhamento', href: '/dashboard/compartilhamento', icon: Share2 }, // NOVA ABA
 ];
 
 export default function DashboardLayout({
@@ -289,16 +291,8 @@ export default function DashboardLayout({
               <Menu className="w-6 h-6" />
             </button>
 
-            {/* Page title - Desktop only - REMOVED THIS SECTION */}
-            {/* <div className="hidden lg:block">
-              <h1 className="text-2xl font-bold text-gray-900">
-                {navigation.find((nav) => nav.href === pathname)?.name ||
-                  'Dashboard'}
-              </h1>
-            </div> */}
-
             {/* Right side actions */}
-            <div className="flex items-center space-x-4 ml-auto"> {/* Added ml-auto to push items to the right */}
+            <div className="flex items-center space-x-4 ml-auto">
               {/* Search button */}
               <button
                 className="p-3 rounded-xl text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50"

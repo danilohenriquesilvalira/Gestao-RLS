@@ -113,6 +113,12 @@
       "relation": "oneToMany",
       "target": "api::registro-mensal.registro-mensal",
       "mappedBy": "aprovado_por"
+    },
+    "arquivo_compartilhados": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::arquivo-compartilhado.arquivo-compartilhado",
+      "mappedBy": "users_permissions_user"
     }
   }
 }

@@ -1,4 +1,4 @@
-// src/app/dashboard/page.tsx ou onde seu DashboardPage está
+// src/app/dashboard/page.tsx - GRÁFICOS MOBILE CORRIGIDOS
 
 'use client';
 
@@ -6,7 +6,6 @@ import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
 import { pontoAPI, PontoMensal } from '@/lib/pontoApi';
 import { useAuth } from '@/hooks/useAuth';
-// import { useRouter } from 'next/navigation'; // Removido, pois o alerta flutuante não é o "sino" principal agora
 import {
   Receipt, FileText, DollarSign, Clock, BarChart3,
   TrendingUp, Users, AlertCircle, X, CreditCard, CheckCircle, Briefcase, Calendar, LogIn,
@@ -29,7 +28,6 @@ interface DashboardStats {
 
 export default function DashboardPage() {
   const { user, isAdmin } = useAuth();
-  // const router = useRouter(); // Removido, se o botão de "Ir para Despesas" não for mais necessário no alerta flutuante
   const [stats, setStats] = useState<DashboardStats>({
     totalDespesas: 0, totalDocumentos: 0,
     valorTotalDespesas: 0, despesasPendentes: 0
@@ -39,7 +37,6 @@ export default function DashboardPage() {
   const [pontosDados, setPontosDados] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  // const [showAlert, setShowAlert] = useState(false); // Removido se o alerta flutuante não for mais necessário
   const [isMobile, setIsMobile] = useState(false);
 
   const COLORS = {
@@ -83,20 +80,17 @@ export default function DashboardPage() {
       processarStatusDados(filteredDespesas);
       processarPontosDados(filteredPontos);
 
-      // ***** AQUI ESTÁ A MUDANÇA MAIS IMPORTANTE *****
-      // O DashboardPage precisa informar ao Layout sobre as pendências
       if (isAdmin && statsRes.despesasPendentes > 0) {
         localStorage.setItem('pendingExpensesCount', statsRes.despesasPendentes.toString());
       } else {
-        localStorage.removeItem('pendingExpensesCount'); // Limpa se não houver pendências
+        localStorage.removeItem('pendingExpensesCount');
       }
-      // Notifica o evento 'storage' para que o Layout possa reagir
       window.dispatchEvent(new Event('storage'));
 
     } catch (err: any) {
       setError('Erro ao carregar dados');
-      localStorage.removeItem('pendingExpensesCount'); // Limpa em caso de erro
-      window.dispatchEvent(new Event('storage')); // Notifica mesmo em erro
+      localStorage.removeItem('pendingExpensesCount');
+      window.dispatchEvent(new Event('storage'));
     } finally {
       setLoading(false);
     }
@@ -209,20 +203,6 @@ export default function DashboardPage() {
     <div className={`${isMobile ? 'min-h-screen' : 'fixed top-20 left-64 right-0'} bottom-12 bg-gray-50 overflow-hidden`}>
       <div className="h-full flex flex-col max-w-none max-h-full">
 
-        {/* Removido o alerta flutuante daqui, pois o sino no layout é o foco */}
-        {/* {showAlert && isAdmin && stats.despesasPendentes > 0 && (
-          <div className="absolute top-4 right-4 z-50 bg-red-50 border border-red-200 p-2 rounded shadow-md flex items-center space-x-2">
-            <AlertCircle className="w-4 h-4 text-red-600" />
-            <span className="text-xs font-medium text-red-800">
-              {stats.despesasPendentes} despesas pendentes
-            </span>
-            <button onClick={() => setShowAlert(false)}>
-              <X className="w-3 h-3 text-red-600" />
-            </button>
-          </div>
-        )} */}
-
-        {/* Restante do seu DashboardPage permanece inalterado */}
         {/* Header */}
         <div className="flex-shrink-0 bg-white border-b p-3">
           <div className="flex items-center space-x-3">
@@ -284,158 +264,288 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Gráficos - Container Principal */}
-        <div className="flex-1 min-h-0 p-3">
-          <div className={`h-full grid gap-3 ${isMobile ? 'grid-rows-3' : 'grid-cols-3 grid-rows-2'} max-h-full`}>
-
-            {/* Despesas Mensais */}
-            <div className={`${isMobile ? '' : 'col-span-2'} bg-white rounded border p-3 flex flex-col min-h-0`}>
-              <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center flex-shrink-0">
-                <TrendingUp className="w-4 h-4 mr-2 text-indigo-600" />
-                Despesas Mensais
-              </h3>
-              <div className="flex-1 min-h-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={despesasMensais} margin={{ top: 5, right: 5, left: 5, bottom: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis dataKey="mes" axisLine={false} tickLine={false} fontSize={10} height={15} />
-                    <YAxis axisLine={false} tickLine={false} fontSize={10} tickFormatter={formatCurrency} width={40} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Line
-                      type="monotone"
-                      dataKey="valor"
-                      stroke={COLORS.primaryBlue}
-                      strokeWidth={3}
-                      dot={{ fill: COLORS.primaryBlue, strokeWidth: 2, r: 4 }}
-                      activeDot={{ r: 6, stroke: COLORS.primaryBlue, strokeWidth: 2 }}
-                      name="Valor Gasto"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Status das Despesas (Ajustado) */}
-            <div className="bg-white rounded border p-3 flex flex-col items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center flex-shrink-0">
-                <PieChartIcon className="w-4 h-4 mr-2 text-blue-600" />
-                Status
-              </h3>
-              <div className="flex-1 w-full flex justify-center items-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={statusDados}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius="65%"
-                      outerRadius="95%"
-                      paddingAngle={2}
-                      dataKey="value"
-                      labelLine={false}
-                      label={({ value }) => (typeof value === 'number' && value > 0) ? '' : null}
-                      stroke="none"
-                    >
-                      {statusDados.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value, name) => [`${value} despesa(s)`, name]} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="mt-4 w-full flex-shrink-0 flex flex-wrap justify-around items-center gap-x-2 gap-y-1">
-                {statusDados.map((entry, index) => (
-                  <div key={`legend-${index}`} className="flex items-center text-xs">
-                    <span className="inline-block w-2.5 h-2.5 rounded-full mr-1" style={{ backgroundColor: entry.color }}></span>
-                    <span className="text-gray-700 font-medium">{entry.name}</span>
-                    <span className="ml-1 font-semibold text-gray-900">({entry.value})</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Horas por Funcionário */}
-            <div className={`${isMobile ? '' : 'col-span-2'} bg-white rounded border p-3 flex flex-col min-h-0`}>
-              <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center flex-shrink-0">
-                <Users className="w-4 h-4 mr-2 text-green-600" />
-                {isAdmin ? 'Horas Funcionários' : 'Suas Horas'}
-              </h3>
-              {pontosDados.length > 0 ? (
-                <div className="flex-1 min-h-0">
+        {/* Gráficos - LAYOUT MOBILE CORRIGIDO */}
+        <div className="flex-1 min-h-0 p-3 overflow-auto">
+          {isMobile ? (
+            // LAYOUT MOBILE: Stack vertical com altura fixa
+            <div className="space-y-4">
+              
+              {/* Despesas Mensais Mobile */}
+              <div className="bg-white rounded border p-3 h-64">
+                <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center">
+                  <TrendingUp className="w-4 h-4 mr-2 text-indigo-600" />
+                  Despesas Mensais
+                </h3>
+                <div className="h-48">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={pontosDados} margin={{ top: 5, right: 5, left: 5, bottom: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                      <XAxis dataKey="nome" axisLine={false} tickLine={false} fontSize={10} height={15} />
-                      <YAxis axisLine={false} tickLine={false} fontSize={10} tickFormatter={(value) => `${value}h`} width={30} />
-                      <Tooltip content={<CustomTooltip unit="h" />} />
-                      <Bar dataKey="horas" fill={COLORS.accentGreen} name="Horas Totais" radius={[2, 2, 0, 0]} />
-                      <Bar dataKey="extras" fill={COLORS.accentOrange} name="Horas Extras" radius={[2, 2, 0, 0]} />
-                    </BarChart>
+                    <LineChart data={despesasMensais} margin={{ top: 5, right: 5, left: 5, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="mes" axisLine={false} tickLine={false} fontSize={10} height={15} />
+                      <YAxis axisLine={false} tickLine={false} fontSize={10} tickFormatter={formatCurrency} width={40} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Line
+                        type="monotone"
+                        dataKey="valor"
+                        stroke={COLORS.primaryBlue}
+                        strokeWidth={3}
+                        dot={{ fill: COLORS.primaryBlue, strokeWidth: 2, r: 4 }}
+                        activeDot={{ r: 6, stroke: COLORS.primaryBlue, strokeWidth: 2 }}
+                        name="Valor Gasto"
+                      />
+                    </LineChart>
                   </ResponsiveContainer>
                 </div>
-              ) : (
-                <div className="flex-1 flex items-center justify-center text-gray-500 min-h-0">
-                  <p className="text-xs">Nenhum registro de ponto</p>
+              </div>
+
+              {/* Status Mobile */}
+              <div className="bg-white rounded border p-3 h-64">
+                <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center">
+                  <PieChartIcon className="w-4 h-4 mr-2 text-blue-600" />
+                  Status das Despesas
+                </h3>
+                <div className="h-32">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={statusDados}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius="40%"
+                        outerRadius="80%"
+                        paddingAngle={2}
+                        dataKey="value"
+                        stroke="none"
+                      >
+                        {statusDados.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value, name) => [`${value} despesa(s)`, name]} />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>
-              )}
-            </div>
-
-            {/* Resumo da Conta (Melhorado com informações de usuário) */}
-            <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg shadow-md border border-indigo-200 p-4 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-24 h-24 bg-indigo-200 rounded-full opacity-30 -translate-x-1/2 -translate-y-1/2" />
-              <div className="absolute bottom-0 right-0 w-20 h-20 bg-indigo-300 rounded-full opacity-20 translate-x-1/3 translate-y-1/3" />
-
-              <h3 className="text-base font-bold text-indigo-900 mb-4 flex items-center z-10 relative">
-                <CreditCard className="w-5 h-5 mr-3 text-indigo-600" />
-                Sua Conta
-              </h3>
-
-              <div className="space-y-3 z-10 relative">
-                {/* Status da Conta */}
-                <div className="flex items-center justify-between p-2 bg-indigo-50 rounded-md">
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                    <span className="text-sm text-indigo-800 font-medium">Status:</span>
-                  </div>
-                  <span className="text-sm font-semibold text-green-700">Ativa</span>
+                <div className="flex flex-wrap justify-center gap-2 mt-2">
+                  {statusDados.map((entry, index) => (
+                    <div key={`legend-${index}`} className="flex items-center text-xs">
+                      <span className="inline-block w-3 h-3 rounded-full mr-1" style={{ backgroundColor: entry.color }}></span>
+                      <span className="text-gray-700">{entry.name} ({entry.value})</span>
+                    </div>
+                  ))}
                 </div>
+              </div>
 
-                {/* Função/Cargo */}
-                <div className="flex items-center justify-between p-2 bg-indigo-50 rounded-md">
-                  <div className="flex items-center space-x-2">
-                    <Briefcase className="w-4 h-4 text-purple-600" />
-                    <span className="text-sm text-indigo-800 font-medium">Função:</span>
+              {/* Horas Mobile */}
+              <div className="bg-white rounded border p-3 h-64">
+                <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center">
+                  <Users className="w-4 h-4 mr-2 text-green-600" />
+                  {isAdmin ? 'Horas Funcionários' : 'Suas Horas'}
+                </h3>
+                {pontosDados.length > 0 ? (
+                  <div className="h-48">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={pontosDados} margin={{ top: 5, right: 5, left: 5, bottom: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                        <XAxis dataKey="nome" axisLine={false} tickLine={false} fontSize={10} height={15} />
+                        <YAxis axisLine={false} tickLine={false} fontSize={10} tickFormatter={(value) => `${value}h`} width={30} />
+                        <Tooltip content={<CustomTooltip unit="h" />} />
+                        <Bar dataKey="horas" fill={COLORS.accentGreen} name="Horas Totais" radius={[2, 2, 0, 0]} />
+                        <Bar dataKey="extras" fill={COLORS.accentOrange} name="Horas Extras" radius={[2, 2, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
-                  <span className="text-sm font-semibold text-indigo-900">
-                    {user?.cargo || (isAdmin ? 'Administrador' : 'Funcionário')}
-                  </span>
-                </div>
+                ) : (
+                  <div className="h-48 flex items-center justify-center text-gray-500">
+                    <p className="text-xs">Nenhum registro de ponto</p>
+                  </div>
+                )}
+              </div>
 
-                {/* Data de Admissão */}
-                <div className="flex items-center justify-between p-2 bg-indigo-50 rounded-md">
-                  <div className="flex items-center space-x-2">
-                    <Calendar className="w-4 h-4 text-orange-600" />
-                    <span className="text-sm text-indigo-800 font-medium">Data de Admissão:</span>
-                  </div>
-                  <span className="text-sm font-semibold text-indigo-900">
-                    {formatDate(user?.data_admissao)}
-                  </span>
-                </div>
+              {/* Resumo da Conta Mobile */}
+              <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg shadow-md border border-indigo-200 p-4">
+                <h3 className="text-base font-bold text-indigo-900 mb-4 flex items-center">
+                  <CreditCard className="w-5 h-5 mr-3 text-indigo-600" />
+                  Sua Conta
+                </h3>
 
-                {/* Membro Desde (usando createdAt) */}
-                <div className="flex items-center justify-between p-2 bg-indigo-50 rounded-md">
-                  <div className="flex items-center space-x-2">
-                    <Calendar className="w-4 h-4 text-sky-600" />
-                    <span className="text-sm text-indigo-800 font-medium">Membro Desde:</span>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-2 bg-indigo-50 rounded-md">
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      <span className="text-sm text-indigo-800 font-medium">Status:</span>
+                    </div>
+                    <span className="text-sm font-semibold text-green-700">Ativa</span>
                   </div>
-                  <span className="text-sm font-semibold text-indigo-900">
-                    {formatDate(user?.createdAt)}
-                  </span>
+
+                  <div className="flex items-center justify-between p-2 bg-indigo-50 rounded-md">
+                    <div className="flex items-center space-x-2">
+                      <Briefcase className="w-4 h-4 text-purple-600" />
+                      <span className="text-sm text-indigo-800 font-medium">Função:</span>
+                    </div>
+                    <span className="text-sm font-semibold text-indigo-900">
+                      {user?.cargo || (isAdmin ? 'Administrador' : 'Funcionário')}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2 bg-indigo-50 rounded-md">
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="w-4 h-4 text-orange-600" />
+                      <span className="text-sm text-indigo-800 font-medium">Admissão:</span>
+                    </div>
+                    <span className="text-sm font-semibold text-indigo-900">
+                      {formatDate(user?.data_admissao)}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          ) : (
+            // LAYOUT DESKTOP: Grid original
+            <div className="h-full grid gap-3 grid-cols-3 grid-rows-2 max-h-full">
+
+              {/* Despesas Mensais Desktop */}
+              <div className="col-span-2 bg-white rounded border p-3 flex flex-col min-h-0">
+                <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center flex-shrink-0">
+                  <TrendingUp className="w-4 h-4 mr-2 text-indigo-600" />
+                  Despesas Mensais
+                </h3>
+                <div className="flex-1 min-h-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={despesasMensais} margin={{ top: 5, right: 5, left: 5, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="mes" axisLine={false} tickLine={false} fontSize={10} height={15} />
+                      <YAxis axisLine={false} tickLine={false} fontSize={10} tickFormatter={formatCurrency} width={40} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Line
+                        type="monotone"
+                        dataKey="valor"
+                        stroke={COLORS.primaryBlue}
+                        strokeWidth={3}
+                        dot={{ fill: COLORS.primaryBlue, strokeWidth: 2, r: 4 }}
+                        activeDot={{ r: 6, stroke: COLORS.primaryBlue, strokeWidth: 2 }}
+                        name="Valor Gasto"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Status Desktop */}
+              <div className="bg-white rounded border p-3 flex flex-col items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center flex-shrink-0">
+                  <PieChartIcon className="w-4 h-4 mr-2 text-blue-600" />
+                  Status
+                </h3>
+                <div className="flex-1 w-full flex justify-center items-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={statusDados}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius="65%"
+                        outerRadius="95%"
+                        paddingAngle={2}
+                        dataKey="value"
+                        labelLine={false}
+                        stroke="none"
+                      >
+                        {statusDados.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value, name) => [`${value} despesa(s)`, name]} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="mt-4 w-full flex-shrink-0 flex flex-wrap justify-around items-center gap-x-2 gap-y-1">
+                  {statusDados.map((entry, index) => (
+                    <div key={`legend-${index}`} className="flex items-center text-xs">
+                      <span className="inline-block w-2.5 h-2.5 rounded-full mr-1" style={{ backgroundColor: entry.color }}></span>
+                      <span className="text-gray-700 font-medium">{entry.name}</span>
+                      <span className="ml-1 font-semibold text-gray-900">({entry.value})</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Horas Desktop */}
+              <div className="col-span-2 bg-white rounded border p-3 flex flex-col min-h-0">
+                <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center flex-shrink-0">
+                  <Users className="w-4 h-4 mr-2 text-green-600" />
+                  {isAdmin ? 'Horas Funcionários' : 'Suas Horas'}
+                </h3>
+                {pontosDados.length > 0 ? (
+                  <div className="flex-1 min-h-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={pontosDados} margin={{ top: 5, right: 5, left: 5, bottom: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                        <XAxis dataKey="nome" axisLine={false} tickLine={false} fontSize={10} height={15} />
+                        <YAxis axisLine={false} tickLine={false} fontSize={10} tickFormatter={(value) => `${value}h`} width={30} />
+                        <Tooltip content={<CustomTooltip unit="h" />} />
+                        <Bar dataKey="horas" fill={COLORS.accentGreen} name="Horas Totais" radius={[2, 2, 0, 0]} />
+                        <Bar dataKey="extras" fill={COLORS.accentOrange} name="Horas Extras" radius={[2, 2, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex items-center justify-center text-gray-500 min-h-0">
+                    <p className="text-xs">Nenhum registro de ponto</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Resumo da Conta Desktop */}
+              <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg shadow-md border border-indigo-200 p-4 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-24 h-24 bg-indigo-200 rounded-full opacity-30 -translate-x-1/2 -translate-y-1/2" />
+                <div className="absolute bottom-0 right-0 w-20 h-20 bg-indigo-300 rounded-full opacity-20 translate-x-1/3 translate-y-1/3" />
+
+                <h3 className="text-base font-bold text-indigo-900 mb-4 flex items-center z-10 relative">
+                  <CreditCard className="w-5 h-5 mr-3 text-indigo-600" />
+                  Sua Conta
+                </h3>
+
+                <div className="space-y-3 z-10 relative">
+                  <div className="flex items-center justify-between p-2 bg-indigo-50 rounded-md">
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      <span className="text-sm text-indigo-800 font-medium">Status:</span>
+                    </div>
+                    <span className="text-sm font-semibold text-green-700">Ativa</span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2 bg-indigo-50 rounded-md">
+                    <div className="flex items-center space-x-2">
+                      <Briefcase className="w-4 h-4 text-purple-600" />
+                      <span className="text-sm text-indigo-800 font-medium">Função:</span>
+                    </div>
+                    <span className="text-sm font-semibold text-indigo-900">
+                      {user?.cargo || (isAdmin ? 'Administrador' : 'Funcionário')}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2 bg-indigo-50 rounded-md">
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="w-4 h-4 text-orange-600" />
+                      <span className="text-sm text-indigo-800 font-medium">Data de Admissão:</span>
+                    </div>
+                    <span className="text-sm font-semibold text-indigo-900">
+                      {formatDate(user?.data_admissao)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2 bg-indigo-50 rounded-md">
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="w-4 h-4 text-sky-600" />
+                      <span className="text-sm text-indigo-800 font-medium">Membro Desde:</span>
+                    </div>
+                    <span className="text-sm font-semibold text-indigo-900">
+                      {formatDate(user?.createdAt)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

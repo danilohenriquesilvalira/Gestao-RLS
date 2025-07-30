@@ -1,6 +1,32 @@
-// lib/api.ts - 
+// lib/api.ts - API com detecção automática de ambiente
 
-const API_URL = 'http://localhost:1337'; //
+// 🔥 DETECÇÃO AUTOMÁTICA DE AMBIENTE
+const getAPIUrl = () => {
+  // Se estiver no browser
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    
+    // Se for IP Tailscale (100.x.x.x)
+    if (hostname.startsWith('100.')) {
+      console.log('🌐 Detectado Tailscale IP:', hostname);
+      return `http://${hostname}:1337`;
+    }
+    
+    // Se for localhost ou 127.0.0.1
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      console.log('🏠 Detectado localhost');
+      return 'http://localhost:1337';
+    }
+  }
+  
+  // Fallback para SSR ou desenvolvimento
+  const fallbackUrl = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337';
+  console.log('🔄 Usando fallback URL:', fallbackUrl);
+  return fallbackUrl;
+};
+
+const API_URL = getAPIUrl();
+console.log('🚀 API_URL configurado:', API_URL);
 
 // Utilitários de segurança
 const safeString = (value: any): string => {

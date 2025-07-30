@@ -1,6 +1,26 @@
-// lib/pontoApi.ts - API DEDICADA PARA PONTO
+// lib/pontoApi.ts - API DEDICADA PARA PONTO - CORRIGIDA PARA TAILSCALE
 
-const API_URL = 'http://localhost:1337';
+// 🔥 DETECÇÃO AUTOMÁTICA IGUAL AO api.ts
+const getAPIUrl = () => {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    
+    if (hostname.startsWith('100.')) {
+      console.log('🌐 PontoAPI detectado Tailscale:', hostname);
+      return `http://${hostname}:1337`;
+    }
+    
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      console.log('🏠 PontoAPI detectado localhost');
+      return 'http://localhost:1337';
+    }
+  }
+  
+  return process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:1337';
+};
+
+const API_URL = getAPIUrl();
+console.log('🚀 PontoAPI URL configurado:', API_URL);
 
 export interface PontoMensal {
     id: number;
@@ -56,9 +76,6 @@ class PontoAPI {
     private normalizePonto(item: any): PontoMensal {
         const attrs = item.attributes || {};
         
-        // Debug
-        // console.log('🔍 Normalizando item:', item.id, attrs); // Removi para menos logs, ative se precisar
-
         const funcionarioData = attrs.users_permissions_user?.data;
         const aprovadorData = attrs.aprovado_por?.data;
         
@@ -74,9 +91,9 @@ class PontoAPI {
             status: attrs.status || 'pendente',
             funcionario: funcionarioData ? {
                 id: funcionarioData.id,
-                nomecompleto: funcionarioData.attributes?.nomecompleto || 'Nome Indisponível', // Adicionei fallback
-                cargo: funcionarioData.attributes?.cargo || 'Cargo Indisponível', // Adicionei fallback
-                email: funcionarioData.attributes?.email || 'Email Indisponível' // Adicionei fallback
+                nomecompleto: funcionarioData.attributes?.nomecompleto || 'Nome Indisponível',
+                cargo: funcionarioData.attributes?.cargo || 'Cargo Indisponível',
+                email: funcionarioData.attributes?.email || 'Email Indisponível'
             } : {
                 id: 0,
                 nomecompleto: 'Usuário não encontrado',
@@ -92,7 +109,6 @@ class PontoAPI {
             updatedAt: attrs.updatedAt || ''
         };
         
-        // console.log('✅ Ponto normalizado:', ponto); // Removi para menos logs, ative se precisar
         return ponto;
     }
 
