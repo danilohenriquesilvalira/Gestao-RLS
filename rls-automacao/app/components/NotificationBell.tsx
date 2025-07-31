@@ -1,8 +1,16 @@
+<<<<<<< HEAD
 // components/NotificationBell.tsx - CORRIGIDO SEM LOOPS
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Bell, AlertCircle, Receipt, Eye, Clock, X, Check, Trash2 } from 'lucide-react';
+=======
+// components/NotificationBell.tsx - INTELIGENTE COM AUTO-DISMISS
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
+import { Bell, AlertCircle, Receipt, Eye, Clock, X, Check } from 'lucide-react';
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
 import { api, Despesa } from '@/lib/api';
 import { pontoAPI, PontoMensal } from '@/lib/pontoApi';
 import Link from 'next/link';
@@ -26,6 +34,7 @@ export default function NotificationBell({ user }: NotificationBellProps) {
   const [notificacoes, setNotificacoes] = useState<Notification[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
+<<<<<<< HEAD
   const [loadingApi, setLoadingApi] = useState(false); // ✅ Flag adicional
   const [lastDataSnapshot, setLastDataSnapshot] = useState<string>('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -33,6 +42,68 @@ export default function NotificationBell({ user }: NotificationBellProps) {
   const isAdmin = user?.cargo === 'Gestor' || 
                   user?.role?.type === 'administrator' ||
                   user?.username === 'admin';
+=======
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const isAdmin = user?.cargo === 'Gestor' || 
+                  user?.role?.type === 'administrator' ||
+                  user?.username === 'admin';
+
+  // SISTEMA DE CACHE DE NOTIFICAÇÕES LIDAS
+  const getReadNotifications = (): string[] => {
+    try {
+      const stored = localStorage.getItem(`readNotifications_${user?.id}`);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const markAsRead = (notificationId: string) => {
+    try {
+      const readIds = getReadNotifications();
+      if (!readIds.includes(notificationId)) {
+        readIds.push(notificationId);
+        localStorage.setItem(`readNotifications_${user?.id}`, JSON.stringify(readIds));
+      }
+    } catch (error) {
+      console.error('Erro ao marcar como lida:', error);
+    }
+  };
+
+  const markAllAsRead = () => {
+    try {
+      const allIds = notificacoes.map(n => n.id);
+      localStorage.setItem(`readNotifications_${user?.id}`, JSON.stringify(allIds));
+      setNotificacoes(prev => prev.map(n => ({ ...n, lida: true })));
+    } catch (error) {
+      console.error('Erro ao marcar todas como lidas:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+      // REFRESH MAIS FREQUENTE: A CADA 10 SEGUNDOS
+      const interval = setInterval(fetchNotifications, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const fetchNotifications = async () => {
+    if (!user) return;
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
 
   // CACHE DE NOTIFICAÇÕES LIDAS
   const getReadNotifications = useCallback((): string[] => {
@@ -97,6 +168,7 @@ export default function NotificationBell({ user }: NotificationBellProps) {
       const despesas = despesasResponse.data || [];
       const pontos = pontosResponse || [];
       const readIds = getReadNotifications();
+<<<<<<< HEAD
       
       // SNAPSHOT PARA AUTO-DISMISS
       const currentSnapshot = JSON.stringify({
@@ -129,6 +201,8 @@ export default function NotificationBell({ user }: NotificationBellProps) {
       }
 
       setLastDataSnapshot(currentSnapshot);
+=======
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
       
       let novasNotificacoes: Notification[] = [];
 
@@ -163,9 +237,15 @@ export default function NotificationBell({ user }: NotificationBellProps) {
           }))
         ];
       } else {
+<<<<<<< HEAD
         // FUNCIONÁRIO: Aprovações nas últimas 72h
         const cutoffDate = new Date();
         cutoffDate.setHours(cutoffDate.getHours() - 72);
+=======
+        // FUNCIONÁRIO: Aprovações nas últimas 48h (aumentado para dar tempo de ver)
+        const cutoffDate = new Date();
+        cutoffDate.setHours(cutoffDate.getHours() - 48); // 48 horas
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
 
         const minhasDespesas = despesas.filter((d: Despesa) => 
           d.users_permissions_user?.id === user.id &&
@@ -201,8 +281,14 @@ export default function NotificationBell({ user }: NotificationBellProps) {
         ];
       }
 
+<<<<<<< HEAD
       // FILTRAR APENAS NÃO LIDAS
       const filteredNotifications = novasNotificacoes.filter(notif => !notif.lida);
+=======
+      // FILTRAR APENAS NÃO LIDAS - LIDAS SOMEM COMPLETAMENTE
+      const filteredNotifications = novasNotificacoes.filter(notif => !notif.lida);
+
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
       filteredNotifications.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
       setNotificacoes(filteredNotifications);
       
@@ -252,6 +338,23 @@ export default function NotificationBell({ user }: NotificationBellProps) {
     setNotificacoes(prev => prev.filter(n => n.id !== notificationId));
   }, [markAsRead]);
 
+  const handleNotificationClick = (notificacao: Notification) => {
+    // MARCA COMO LIDA E REMOVE DA LISTA IMEDIATAMENTE
+    markAsRead(notificacao.id);
+    setNotificacoes(prev => prev.filter(n => n.id !== notificacao.id));
+  };
+
+  const handleViewDetails = (notificacao: Notification) => {
+    handleNotificationClick(notificacao);
+    setShowDropdown(false);
+  };
+
+  const dismissNotification = (notificationId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    markAsRead(notificationId);
+    setNotificacoes(prev => prev.filter(n => n.id !== notificationId));
+  };
+
   const getNotificationIcon = (tipo: string) => {
     switch (tipo) {
       case 'despesa_pendente':
@@ -295,9 +398,14 @@ export default function NotificationBell({ user }: NotificationBellProps) {
         className="relative p-3 rounded-xl text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50"
         aria-label="Notificações"
       >
+<<<<<<< HEAD
         <Bell className={`w-6 h-6 ${naoLidas > 0 ? 'text-red-500' : ''}`} />
         
         {/* BADGE LIMITADO A 9+ */}
+=======
+        <Bell className={`w-6 h-6 ${naoLidas > 0 ? 'text-red-500 animate-pulse' : ''}`} />
+        
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
         {naoLidas > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-medium">
             {naoLidas > 9 ? '9+' : naoLidas}
@@ -314,6 +422,7 @@ export default function NotificationBell({ user }: NotificationBellProps) {
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">Notificações</h3>
               <div className="flex items-center space-x-2">
+<<<<<<< HEAD
                 {!isAdmin && hasApprovedNotifications && (
                   <button
                     onClick={clearApprovedNotifications}
@@ -325,6 +434,8 @@ export default function NotificationBell({ user }: NotificationBellProps) {
                   </button>
                 )}
                 
+=======
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
                 {naoLidas > 0 && (
                   <button
                     onClick={markAllAsRead}
@@ -334,7 +445,10 @@ export default function NotificationBell({ user }: NotificationBellProps) {
                     <span>Marcar todas</span>
                   </button>
                 )}
+<<<<<<< HEAD
                 
+=======
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
                 <button
                   onClick={() => setShowDropdown(false)}
                   className="text-gray-400 hover:text-gray-600"
@@ -367,7 +481,14 @@ export default function NotificationBell({ user }: NotificationBellProps) {
                 {notificacoes.map((notificacao) => (
                   <div
                     key={notificacao.id}
+<<<<<<< HEAD
                     className="p-4 hover:bg-gray-50 transition-colors relative bg-blue-50 border-l-4 border-l-blue-500 group"
+=======
+                    className={`p-4 hover:bg-gray-50 transition-colors relative ${
+                      !notificacao.lida ? 'bg-blue-50 border-l-4 border-l-blue-500' : 'opacity-75'
+                    }`}
+                    onClick={() => handleNotificationClick(notificacao)}
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
                   >
                     <div className="flex items-start space-x-3">
                       <div className="flex-shrink-0 mt-1">
@@ -376,7 +497,9 @@ export default function NotificationBell({ user }: NotificationBellProps) {
                       
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium text-gray-900 truncate">
+                          <p className={`text-sm font-medium truncate ${
+                            !notificacao.lida ? 'text-gray-900' : 'text-gray-600'
+                          }`}>
                             {notificacao.titulo}
                           </p>
                           <div className="flex items-center space-x-2 ml-2">
@@ -392,7 +515,13 @@ export default function NotificationBell({ user }: NotificationBellProps) {
                           </div>
                         </div>
                         
+<<<<<<< HEAD
                         <p className="text-sm text-gray-700 mt-1 line-clamp-2">
+=======
+                        <p className={`text-sm mt-1 line-clamp-2 ${
+                          !notificacao.lida ? 'text-gray-700' : 'text-gray-500'
+                        }`}>
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
                           {notificacao.descricao}
                         </p>
                         
@@ -409,7 +538,13 @@ export default function NotificationBell({ user }: NotificationBellProps) {
                         </div>
                       </div>
 
+<<<<<<< HEAD
                       <div className="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full ml-2 mt-1.5"></div>
+=======
+                      {!notificacao.lida && (
+                        <div className="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full ml-2 mt-1.5"></div>
+                      )}
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
                     </div>
                   </div>
                 ))}

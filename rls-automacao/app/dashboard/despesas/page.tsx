@@ -62,7 +62,32 @@ export default function DespesasPage() {
         comprovativo: null as File | null
     });
 
+<<<<<<< HEAD
     // ✅ LAYOUT COM CLEANUP
+=======
+    // Detecta layout
+    useEffect(() => {
+        const updateLayout = () => {
+            const width = window.innerWidth;
+            const mobile = width <= 768;
+            
+            setIsMobile(mobile);
+            
+            if (mobile) {
+                setCardsPerPage(6);
+            } else if (width <= 1528) {
+                setCardsPerPage(8);  // 2 fileiras x 4 colunas
+            } else {
+                setCardsPerPage(12); // 3 fileiras x 4 colunas
+            }
+        };
+
+        updateLayout();
+        window.addEventListener('resize', updateLayout);
+        return () => window.removeEventListener('resize', updateLayout);
+    }, []);
+
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
     useEffect(() => {
         const updateLayout = () => {
             const width = window.innerWidth;

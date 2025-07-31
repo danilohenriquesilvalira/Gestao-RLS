@@ -1,7 +1,11 @@
+<<<<<<< HEAD
 // app/dashboard/compartilhamento/page.tsx - COMPLETO E FUNCIONAL
+=======
+// app/dashboard/compartilhamento/page.tsx - CORRIGIDO COM ATUALIZAÇÕES AUTOMÁTICAS
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { compartilhamentoAPI, ArquivoCompartilhado, UploadData } from '@/lib/compartilhamentoApi';
 import { pastaAPI, PastaCompartilhamento } from '@/lib/pastaApi';
 import { useAuth } from '@/hooks/useAuth';
@@ -48,7 +52,11 @@ export default function CompartilhamentoPage() {
     // Estados de modais - CORRIGIDO
     const [showPastaModal, setShowPastaModal] = useState(false);
     const [pastaEditando, setPastaEditando] = useState<PastaCompartilhamento | undefined>();
+<<<<<<< HEAD
     const [pastaPaiParaSubpasta, setPastaPaiParaSubpasta] = useState<PastaCompartilhamento | null>(null);
+=======
+    const [pastaPai, setPastaPai] = useState<PastaCompartilhamento | undefined>(); // Para subpastas
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     
     // Estados de drag & drop
@@ -65,6 +73,52 @@ export default function CompartilhamentoPage() {
     });
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // FUNÇÕES DE CARREGAMENTO OTIMIZADAS
+    const carregarPastas = useCallback(async () => {
+        try {
+            const pastasData = await pastaAPI.buscarHierarquia();
+            setPastas(pastasData);
+            return pastasData;
+        } catch (err) {
+            setError('Erro ao carregar pastas');
+            return [];
+        }
+    }, []);
+
+    const carregarArquivos = useCallback(async (pastaId?: number | null) => {
+        try {
+            const arquivosData = await compartilhamentoAPI.buscarArquivos(pastaId);
+            if (pastaId === null) {
+                setArquivosSemPasta(arquivosData);
+            } else {
+                setArquivos(arquivosData);
+            }
+            return arquivosData;
+        } catch (err) {
+            setError('Erro ao carregar arquivos');
+            return [];
+        }
+    }, []);
+
+    const carregarDados = useCallback(async () => {
+        setLoading(true);
+        try {
+            const [pastasData] = await Promise.all([
+                carregarPastas(),
+                carregarArquivos(pastaAtual?.id)
+            ]);
+            
+            // Se está na raiz, carrega arquivos sem pasta
+            if (!pastaAtual) {
+                await carregarArquivos(null);
+            }
+        } catch (err) {
+            setError('Erro ao carregar dados');
+        } finally {
+            setLoading(false);
+        }
+    }, [pastaAtual?.id, carregarPastas, carregarArquivos]);
 
     // Layout responsivo
     useEffect(() => {
@@ -95,23 +149,49 @@ export default function CompartilhamentoPage() {
     // Carregar dados iniciais
     useEffect(() => {
         carregarDados();
-    }, []);
+    }, [carregarDados]);
 
     // Atualizar form com pasta atual
     useEffect(() => {
         setUploadForm(prev => ({ ...prev, pasta: pastaAtual?.id }));
     }, [pastaAtual]);
 
+<<<<<<< HEAD
     // Recarregar arquivos quando mudar pasta
     useEffect(() => {
         if (!loading) {
             carregarConteudo();
         }
     }, [pastaAtual, loading]);
+=======
+    // HANDLERS DE PASTA - NAVEGAÇÃO SUAVE SEM RECARREGAR TUDO
+    const handleSelectPasta = useCallback((pasta: PastaCompartilhamento | null) => {
+        setPastaAtual(pasta);
+        setCurrentPage(1);
+    }, []);
 
-    // Funções de carregamento
-    const carregarDados = async () => {
+    const handleCreatePasta = () => {
+        setPastaEditando(undefined);
+        setPastaPai(undefined);
+        setShowPastaModal(true);
+    };
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
+
+    const handleCreateSubpasta = (pastaPaiParam: PastaCompartilhamento) => {
+        setPastaEditando(undefined);
+        setPastaPai(pastaPaiParam);
+        setShowPastaModal(true);
+    };
+
+    const handleEditPasta = (pasta: PastaCompartilhamento) => {
+        setPastaEditando(pasta);
+        setPastaPai(undefined);
+        setShowPastaModal(true);
+    };
+
+    const handleSavePasta = async (data: any) => {
         try {
+<<<<<<< HEAD
             setLoading(true);
             const pastasData = await pastaAPI.buscarHierarquia();
             setPastas(pastasData);
@@ -142,6 +222,45 @@ export default function CompartilhamentoPage() {
     };
 
     // Handlers de upload
+=======
+            if (pastaEditando) {
+                await pastaAPI.atualizarPasta(pastaEditando.id, data);
+                setSuccess('Pasta atualizada!');
+            } else {
+                await pastaAPI.criarPasta(data);
+                setSuccess(pastaPai ? 'Subpasta criada!' : 'Pasta criada!');
+            }
+            
+            // Recarregar pastas imediatamente
+            await carregarPastas();
+            
+        } catch (err) {
+            setError('Erro ao salvar pasta');
+            throw err;
+        }
+    };
+
+    const handleDeletePasta = async (pasta: PastaCompartilhamento) => {
+        if (!confirm(`Excluir pasta "${pasta.nome}"?`)) return;
+        
+        try {
+            await pastaAPI.deletarPasta(pasta.id);
+            setSuccess('Pasta excluída!');
+            
+            if (pastaAtual?.id === pasta.id) {
+                setPastaAtual(null);
+            }
+            
+            // Recarregar dados imediatamente
+            await carregarPastas();
+            
+        } catch (err) {
+            setError('Erro ao excluir pasta');
+        }
+    };
+
+    // HANDLERS DE UPLOAD - CORRIGIDOS
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
@@ -161,8 +280,14 @@ export default function CompartilhamentoPage() {
         try {
             setUploading(true);
             await compartilhamentoAPI.uploadArquivo(selectedFile, uploadForm);
+<<<<<<< HEAD
             setSuccess('Arquivo enviado com sucesso!');
             
+=======
+            setSuccess('Arquivo enviado!');
+            
+            // Reset form
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
             setSelectedFile(null);
             setUploadForm({
                 nome: '',
@@ -173,32 +298,70 @@ export default function CompartilhamentoPage() {
             });
             fileInputRef.current!.value = '';
             
+<<<<<<< HEAD
             await carregarConteudo();
             
         } catch (err: any) {
             setError('Erro no upload: ' + (err.message || 'Erro desconhecido'));
             console.error('Erro upload:', err);
+=======
+            // Recarregar arquivos imediatamente
+            await carregarArquivos(pastaAtual?.id);
+            if (!pastaAtual) {
+                await carregarArquivos(null);
+            }
+            
+        } catch (err) {
+            setError('Erro no upload');
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
         } finally {
             setUploading(false);
         }
     };
 
-    // Handlers de arquivo
+    // HANDLERS DE ARQUIVO - CORRIGIDOS
     const handleDownload = async (arquivo: ArquivoCompartilhado) => {
         try {
             await compartilhamentoAPI.downloadArquivo(arquivo);
-        } catch (err: any) {
+            // Atualizar contador sem recarregar toda lista
+            const isRaiz = !pastaAtual;
+            if (isRaiz) {
+                setArquivosSemPasta(prev => 
+                    prev.map(a => a.id === arquivo.id ? 
+                        {...a, downloads: a.downloads + 1, visualizacoes: a.visualizacoes + 1} : a
+                    )
+                );
+            } else {
+                setArquivos(prev => 
+                    prev.map(a => a.id === arquivo.id ? 
+                        {...a, downloads: a.downloads + 1, visualizacoes: a.visualizacoes + 1} : a
+                    )
+                );
+            }
+        } catch (err) {
             setError('Erro no download');
         }
     };
 
     const handleDelete = async (id: number) => {
         if (!confirm('Excluir arquivo?')) return;
+        
         try {
             await compartilhamentoAPI.deletarArquivo(id);
             setSuccess('Arquivo excluído!');
+<<<<<<< HEAD
             await carregarConteudo();
         } catch (err: any) {
+=======
+            
+            // Recarregar arquivos imediatamente
+            await carregarArquivos(pastaAtual?.id);
+            if (!pastaAtual) {
+                await carregarArquivos(null);
+            }
+            
+        } catch (err) {
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
             setError('Erro ao excluir arquivo');
         }
     };
@@ -206,8 +369,25 @@ export default function CompartilhamentoPage() {
     const toggleVisibility = async (arquivo: ArquivoCompartilhado) => {
         try {
             await compartilhamentoAPI.alterarVisibilidade(arquivo.id, !arquivo.publico);
+<<<<<<< HEAD
             await carregarConteudo();
         } catch (err: any) {
+=======
+            
+            // Atualizar estado local imediatamente
+            const isRaiz = !pastaAtual;
+            if (isRaiz) {
+                setArquivosSemPasta(prev => 
+                    prev.map(a => a.id === arquivo.id ? {...a, publico: !a.publico} : a)
+                );
+            } else {
+                setArquivos(prev => 
+                    prev.map(a => a.id === arquivo.id ? {...a, publico: !a.publico} : a)
+                );
+            }
+            
+        } catch (err) {
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
             setError('Erro ao alterar visibilidade');
         }
     };
@@ -215,12 +395,30 @@ export default function CompartilhamentoPage() {
     const toggleFavorito = async (arquivo: ArquivoCompartilhado) => {
         try {
             await compartilhamentoAPI.toggleFavorito(arquivo.id, !arquivo.favorito);
+<<<<<<< HEAD
             await carregarConteudo();
         } catch (err: any) {
+=======
+            
+            // Atualizar estado local imediatamente
+            const isRaiz = !pastaAtual;
+            if (isRaiz) {
+                setArquivosSemPasta(prev => 
+                    prev.map(a => a.id === arquivo.id ? {...a, favorito: !a.favorito} : a)
+                );
+            } else {
+                setArquivos(prev => 
+                    prev.map(a => a.id === arquivo.id ? {...a, favorito: !a.favorito} : a)
+                );
+            }
+            
+        } catch (err) {
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
             setError('Erro ao favoritar');
         }
     };
 
+<<<<<<< HEAD
     // Handlers de pasta - CORRIGIDOS
     const handleSelectPasta = (pasta: PastaCompartilhamento | null) => {
         setPastaAtual(pasta);
@@ -284,6 +482,9 @@ export default function CompartilhamentoPage() {
     };
 
     // Handlers de drag & drop
+=======
+    // HANDLERS DE DRAG & DROP - CORRIGIDOS
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
     const handleDragStart = (arquivo: ArquivoCompartilhado) => {
         setDraggedItem(arquivo);
     };
@@ -307,9 +508,19 @@ export default function CompartilhamentoPage() {
             await compartilhamentoAPI.moverArquivo(draggedItem.id, pastaDestino?.id || null);
             setSuccess(`Arquivo movido para ${pastaDestino?.nome || 'raiz'}!`);
             
+<<<<<<< HEAD
             await carregarConteudo();
             
         } catch (err: any) {
+=======
+            // Recarregar dados imediatamente
+            await carregarArquivos(pastaAtual?.id);
+            if (!pastaAtual) {
+                await carregarArquivos(null);
+            }
+            
+        } catch (err) {
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
             setError('Erro ao mover arquivo');
         } finally {
             setDraggedItem(null);
@@ -368,6 +579,21 @@ export default function CompartilhamentoPage() {
             arquivosSemPasta.reduce((acc, a) => acc + (a.downloads || 0), 0) : 
             arquivos.reduce((acc, a) => acc + (a.downloads || 0), 0)
     };
+
+    // Auto-hide alerts
+    useEffect(() => {
+        if (error) {
+            const timer = setTimeout(() => setError(''), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [error]);
+
+    useEffect(() => {
+        if (success) {
+            const timer = setTimeout(() => setSuccess(''), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [success]);
 
     if (loading && itensParaMostrar.length === 0) {
         return (
@@ -440,7 +666,11 @@ export default function CompartilhamentoPage() {
                                     <div className="text-xs text-gray-600">Pastas</div>
                                 </div>
                                 <div className="bg-white p-3 rounded-lg text-center shadow-sm">
+<<<<<<< HEAD
                                     <div className="text-xl font-bold text-primary-600">{stats.total}</div>
+=======
+                                    <div className="text-xl font-bold text-primary-600">{isRaiz ? arquivosSemPasta.length : arquivos.length}</div>
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
                                     <div className="text-xs text-gray-600">Arquivos</div>
                                 </div>
                             </div>
@@ -603,12 +833,18 @@ export default function CompartilhamentoPage() {
             {/* Modais - CORRIGIDOS */}
             <PastaModal
                 pasta={pastaEditando}
+                pastaPai={pastaPai}
                 parentePastas={pastas}
                 pastaPai={pastaPaiParaSubpasta}
                 isOpen={showPastaModal}
                 onClose={() => {
                     setShowPastaModal(false);
+<<<<<<< HEAD
                     setPastaPaiParaSubpasta(null);
+=======
+                    setPastaEditando(undefined);
+                    setPastaPai(undefined);
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
                 }}
                 onSave={handleSavePasta}
             />

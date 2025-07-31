@@ -4,7 +4,8 @@
   "info": {
     "singularName": "pasta-compartilhamento",
     "pluralName": "pasta-compartilhamentos",
-    "displayName": "pasta-compartilhamento"
+    "displayName": "pasta-compartilhamento",
+    "description": ""
   },
   "options": {
     "draftAndPublish": true
@@ -29,6 +30,7 @@
       "type": "relation",
       "relation": "manyToOne",
       "target": "api::pasta-compartilhamento.pasta-compartilhamento",
+<<<<<<< HEAD
       "inversedBy": "subpastas"
     },
     "subpastas": {
@@ -36,6 +38,15 @@
       "relation": "oneToMany", 
       "target": "api::pasta-compartilhamento.pasta-compartilhamento",
       "mappedBy": "pasta_pai"
+=======
+      "inversedBy": "pasta_compartilhamentos"
+>>>>>>> 4cf0e25e8448e95e3242d17810777c3ded133477
+    },
+    "pasta_compartilhamentos": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::pasta-compartilhamento.pasta-compartilhamento",
+      "mappedBy": "subpastas"
     },
     "usuario_proprietario": {
       "type": "relation",
@@ -62,6 +73,12 @@
       "relation": "oneToMany",
       "target": "api::arquivo-compartilhado.arquivo-compartilhado",
       "mappedBy": "pasta"
+    },
+    "subpastas": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::pasta-compartilhamento.pasta-compartilhamento",
+      "inversedBy": "pasta_compartilhamentos"
     }
   }
 }
