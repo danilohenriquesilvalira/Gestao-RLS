@@ -1,4 +1,4 @@
-// app/dashboard/compartilhamento/page.tsx - REFATORADO
+// app/dashboard/compartilhamento/page.tsx - COMPLETO E FUNCIONAL
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -45,9 +45,10 @@ export default function CompartilhamentoPage() {
     const [categoryFilter, setCategoryFilter] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     
-    // Estados de modais
+    // Estados de modais - CORRIGIDO
     const [showPastaModal, setShowPastaModal] = useState(false);
     const [pastaEditando, setPastaEditando] = useState<PastaCompartilhamento | undefined>();
+    const [pastaPaiParaSubpasta, setPastaPaiParaSubpasta] = useState<PastaCompartilhamento | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     
     // Estados de drag & drop
@@ -104,15 +105,7 @@ export default function CompartilhamentoPage() {
     // Recarregar arquivos quando mudar pasta
     useEffect(() => {
         if (!loading) {
-            carregarArquivos();
-        }
-    }, [pastaAtual]);
-
-    // Carregar arquivos sem pasta na raiz
-    useEffect(() => {
-        const isRaiz = !pastaAtual;
-        if (isRaiz && !loading) {
-            carregarArquivosSemPasta().then(setArquivosSemPasta);
+            carregarConteudo();
         }
     }, [pastaAtual, loading]);
 
@@ -120,35 +113,31 @@ export default function CompartilhamentoPage() {
     const carregarDados = async () => {
         try {
             setLoading(true);
-            const [arquivosData, pastasData] = await Promise.all([
-                compartilhamentoAPI.buscarArquivos(pastaAtual?.id),
-                pastaAPI.buscarHierarquia()
-            ]);
-            setArquivos(arquivosData);
+            const pastasData = await pastaAPI.buscarHierarquia();
             setPastas(pastasData);
+            await carregarConteudo();
         } catch (err: any) {
             setError('Erro ao carregar dados');
+            console.error('Erro carregar dados:', err);
         } finally {
             setLoading(false);
         }
     };
 
-    const carregarArquivos = async () => {
+    const carregarConteudo = async () => {
         try {
-            const arquivosData = await compartilhamentoAPI.buscarArquivos(pastaAtual?.id);
-            setArquivos(arquivosData);
+            if (pastaAtual) {
+                const arquivosData = await compartilhamentoAPI.buscarArquivos(pastaAtual.id);
+                setArquivos(arquivosData);
+                setArquivosSemPasta([]);
+            } else {
+                const arquivosSemPastaData = await compartilhamentoAPI.buscarArquivos(null);
+                setArquivosSemPasta(arquivosSemPastaData);
+                setArquivos([]);
+            }
         } catch (err: any) {
-            setError('Erro ao carregar arquivos');
-        }
-    };
-
-    const carregarArquivosSemPasta = async () => {
-        try {
-            const arquivosSemPasta = await compartilhamentoAPI.buscarArquivos(null);
-            return arquivosSemPasta;
-        } catch (err: any) {
-            setError('Erro ao carregar arquivos sem pasta');
-            return [];
+            setError('Erro ao carregar conteúdo');
+            console.error('Erro carregar conteúdo:', err);
         }
     };
 
@@ -157,7 +146,11 @@ export default function CompartilhamentoPage() {
         const file = e.target.files?.[0];
         if (file) {
             setSelectedFile(file);
-            setUploadForm(prev => ({ ...prev, nome: file.name.split('.')[0] }));
+            setUploadForm(prev => ({ 
+                ...prev, 
+                nome: file.name.split('.')[0],
+                pasta: pastaAtual?.id 
+            }));
         }
     };
 
@@ -168,7 +161,8 @@ export default function CompartilhamentoPage() {
         try {
             setUploading(true);
             await compartilhamentoAPI.uploadArquivo(selectedFile, uploadForm);
-            setSuccess('Arquivo enviado!');
+            setSuccess('Arquivo enviado com sucesso!');
+            
             setSelectedFile(null);
             setUploadForm({
                 nome: '',
@@ -178,9 +172,12 @@ export default function CompartilhamentoPage() {
                 pasta: pastaAtual?.id
             });
             fileInputRef.current!.value = '';
-            await carregarArquivos();
+            
+            await carregarConteudo();
+            
         } catch (err: any) {
-            setError('Erro no upload');
+            setError('Erro no upload: ' + (err.message || 'Erro desconhecido'));
+            console.error('Erro upload:', err);
         } finally {
             setUploading(false);
         }
@@ -200,7 +197,7 @@ export default function CompartilhamentoPage() {
         try {
             await compartilhamentoAPI.deletarArquivo(id);
             setSuccess('Arquivo excluído!');
-            await carregarArquivos();
+            await carregarConteudo();
         } catch (err: any) {
             setError('Erro ao excluir arquivo');
         }
@@ -209,7 +206,7 @@ export default function CompartilhamentoPage() {
     const toggleVisibility = async (arquivo: ArquivoCompartilhado) => {
         try {
             await compartilhamentoAPI.alterarVisibilidade(arquivo.id, !arquivo.publico);
-            await carregarArquivos();
+            await carregarConteudo();
         } catch (err: any) {
             setError('Erro ao alterar visibilidade');
         }
@@ -218,13 +215,13 @@ export default function CompartilhamentoPage() {
     const toggleFavorito = async (arquivo: ArquivoCompartilhado) => {
         try {
             await compartilhamentoAPI.toggleFavorito(arquivo.id, !arquivo.favorito);
-            await carregarArquivos();
+            await carregarConteudo();
         } catch (err: any) {
             setError('Erro ao favoritar');
         }
     };
 
-    // Handlers de pasta
+    // Handlers de pasta - CORRIGIDOS
     const handleSelectPasta = (pasta: PastaCompartilhamento | null) => {
         setPastaAtual(pasta);
         setCurrentPage(1);
@@ -232,14 +229,24 @@ export default function CompartilhamentoPage() {
 
     const handleCreatePasta = () => {
         setPastaEditando(undefined);
+        setPastaPaiParaSubpasta(null);
+        setShowPastaModal(true);
+    };
+
+    // NOVA FUNÇÃO - Criar subpasta
+    const handleCreateSubpasta = (pastaPai: PastaCompartilhamento) => {
+        setPastaEditando(undefined);
+        setPastaPaiParaSubpasta(pastaPai);
         setShowPastaModal(true);
     };
 
     const handleEditPasta = (pasta: PastaCompartilhamento) => {
         setPastaEditando(pasta);
+        setPastaPaiParaSubpasta(null);
         setShowPastaModal(true);
     };
 
+    // FUNÇÃO CORRIGIDA - Usar o data.pasta_pai do form
     const handleSavePasta = async (data: any) => {
         try {
             if (pastaEditando) {
@@ -249,21 +256,28 @@ export default function CompartilhamentoPage() {
                 await pastaAPI.criarPasta(data);
                 setSuccess('Pasta criada!');
             }
-            await carregarDados();
+            
+            const pastasData = await pastaAPI.buscarHierarquia();
+            setPastas(pastasData);
+            
         } catch (err: any) {
-            setError('Erro ao salvar pasta');
+            setError('Erro ao salvar pasta: ' + (err.message || 'Erro desconhecido'));
+            console.error('Erro salvar pasta:', err);
         }
     };
 
     const handleDeletePasta = async (pasta: PastaCompartilhamento) => {
-        if (!confirm(`Excluir pasta "${pasta.nome}"?`)) return;
+        if (!confirm(`Excluir pasta "${pasta.nome}"? Todos os arquivos serão movidos para a raiz.`)) return;
         try {
             await pastaAPI.deletarPasta(pasta.id);
             setSuccess('Pasta excluída!');
+            
             if (pastaAtual?.id === pasta.id) {
                 setPastaAtual(null);
             }
+            
             await carregarDados();
+            
         } catch (err: any) {
             setError('Erro ao excluir pasta');
         }
@@ -293,13 +307,8 @@ export default function CompartilhamentoPage() {
             await compartilhamentoAPI.moverArquivo(draggedItem.id, pastaDestino?.id || null);
             setSuccess(`Arquivo movido para ${pastaDestino?.nome || 'raiz'}!`);
             
-            const isRaiz = !pastaAtual;
-            if (isRaiz) {
-                const novosArquivosSemPasta = await carregarArquivosSemPasta();
-                setArquivosSemPasta(novosArquivosSemPasta);
-            } else {
-                await carregarArquivos();
-            }
+            await carregarConteudo();
+            
         } catch (err: any) {
             setError('Erro ao mover arquivo');
         } finally {
@@ -394,6 +403,7 @@ export default function CompartilhamentoPage() {
                                         <button
                                             onClick={handleCreatePasta}
                                             className="p-1.5 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded"
+                                            title="Criar pasta"
                                         >
                                             <FolderPlus className="w-4 h-4" />
                                         </button>
@@ -417,6 +427,7 @@ export default function CompartilhamentoPage() {
                                 onSelectPasta={handleSelectPasta}
                                 onEditPasta={handleEditPasta}
                                 onDeletePasta={handleDeletePasta}
+                                onCreateSubpasta={handleCreateSubpasta}
                                 isAdmin={isAdmin}
                             />
                         </div>
@@ -429,7 +440,7 @@ export default function CompartilhamentoPage() {
                                     <div className="text-xs text-gray-600">Pastas</div>
                                 </div>
                                 <div className="bg-white p-3 rounded-lg text-center shadow-sm">
-                                    <div className="text-xl font-bold text-primary-600">{arquivos.length}</div>
+                                    <div className="text-xl font-bold text-primary-600">{stats.total}</div>
                                     <div className="text-xs text-gray-600">Arquivos</div>
                                 </div>
                             </div>
@@ -589,12 +600,16 @@ export default function CompartilhamentoPage() {
                 </div>
             )}
 
-            {/* Modais */}
+            {/* Modais - CORRIGIDOS */}
             <PastaModal
                 pasta={pastaEditando}
                 parentePastas={pastas}
+                pastaPai={pastaPaiParaSubpasta}
                 isOpen={showPastaModal}
-                onClose={() => setShowPastaModal(false)}
+                onClose={() => {
+                    setShowPastaModal(false);
+                    setPastaPaiParaSubpasta(null);
+                }}
                 onSave={handleSavePasta}
             />
 
@@ -624,11 +639,13 @@ export default function CompartilhamentoPage() {
 
             {/* Alertas */}
             {error && (
-                <div className="fixed top-4 right-4 bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded-lg shadow-lg z-50">
-                    <div className="flex items-center">
-                        <AlertCircle className="w-5 h-5 mr-2" />
-                        {error}
-                        <button onClick={() => setError('')} className="ml-2">
+                <div className="fixed top-4 right-4 bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded-lg shadow-lg z-50 max-w-md">
+                    <div className="flex items-start">
+                        <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                            <p className="text-sm">{error}</p>
+                        </div>
+                        <button onClick={() => setError('')} className="ml-2 flex-shrink-0">
                             <X className="w-4 h-4" />
                         </button>
                     </div>
@@ -636,10 +653,10 @@ export default function CompartilhamentoPage() {
             )}
 
             {success && (
-                <div className="fixed top-4 right-4 bg-green-100 border border-green-300 text-green-700 px-4 py-3 rounded-lg shadow-lg z-50">
+                <div className="fixed top-4 right-4 bg-green-100 border border-green-300 text-green-700 px-4 py-3 rounded-lg shadow-lg z-50 max-w-md">
                     <div className="flex items-center">
                         <CheckCircle className="w-5 h-5 mr-2" />
-                        {success}
+                        <p className="text-sm">{success}</p>
                         <button onClick={() => setSuccess('')} className="ml-2">
                             <X className="w-4 h-4" />
                         </button>

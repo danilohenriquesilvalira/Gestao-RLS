@@ -28,8 +28,14 @@
     "pasta_pai": {
       "type": "relation",
       "relation": "manyToOne",
-      "target": "plugin::users-permissions.user",
-      "inversedBy": "pasta_compartilhamentos"
+      "target": "api::pasta-compartilhamento.pasta-compartilhamento",
+      "inversedBy": "subpastas"
+    },
+    "subpastas": {
+      "type": "relation",
+      "relation": "oneToMany", 
+      "target": "api::pasta-compartilhamento.pasta-compartilhamento",
+      "mappedBy": "pasta_pai"
     },
     "usuario_proprietario": {
       "type": "relation",

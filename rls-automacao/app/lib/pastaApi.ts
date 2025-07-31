@@ -1,4 +1,4 @@
-// app/lib/pastaApi.ts
+// app/lib/pastaApi.ts - CORRIGIDO
 const getAPIUrl = () => {
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
@@ -103,7 +103,7 @@ class PastaAPI {
     }
 
     async buscarPastas(): Promise<PastaCompartilhamento[]> {
-        const response = await fetch(`${API_URL}/api/pasta-compartilhamentos?populate=*&sort=ordem`, {
+        const response = await fetch(`${API_URL}/api/pasta-compartilhamentos?populate[pasta_pai]=*&populate[usuario_proprietario]=*&sort=ordem`, {
             headers: this.getHeaders()
         });
 
@@ -116,12 +116,19 @@ class PastaAPI {
     async criarPasta(data: CreatePastaData): Promise<PastaCompartilhamento> {
         const payload = {
             data: {
-                ...data,
+                nome: data.nome,
+                descricao: data.descricao || '',
+                cor: data.cor || '#3B82F6',
+                icone: data.icone || 'Folder',
+                pasta_pai: data.pasta_pai || null,
+                publico: data.publico,
                 usuario_proprietario: this.getCurrentUserId(),
                 ordem: 0,
                 ativo: true
             }
         };
+
+        console.log('Payload criação pasta:', payload); // Debug
 
         const response = await fetch(`${API_URL}/api/pasta-compartilhamentos`, {
             method: 'POST',
@@ -129,17 +136,28 @@ class PastaAPI {
             body: JSON.stringify(payload)
         });
 
-        if (!response.ok) throw new Error('Erro ao criar pasta');
+        if (!response.ok) {
+            const error = await response.text();
+            console.error('Erro ao criar pasta:', error);
+            throw new Error('Erro ao criar pasta');
+        }
         
         const result = await response.json();
         return this.normalizePasta(result.data);
     }
 
     async atualizarPasta(id: number, data: Partial<CreatePastaData>): Promise<PastaCompartilhamento> {
+        const payload = {
+            data: {
+                ...data,
+                pasta_pai: data.pasta_pai || null
+            }
+        };
+
         const response = await fetch(`${API_URL}/api/pasta-compartilhamentos/${id}`, {
             method: 'PUT',
             headers: this.getHeaders(),
-            body: JSON.stringify({ data })
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) throw new Error('Erro ao atualizar pasta');
@@ -166,10 +184,12 @@ class PastaAPI {
         const pastaMap = new Map<number, PastaCompartilhamento>();
         const raizes: PastaCompartilhamento[] = [];
 
+        // Criar mapa de pastas
         pastas.forEach(pasta => {
             pastaMap.set(pasta.id, { ...pasta, subpastas: [] });
         });
 
+        // Construir hierarquia
         pastas.forEach(pasta => {
             const pastaNode = pastaMap.get(pasta.id)!;
             
@@ -177,13 +197,16 @@ class PastaAPI {
                 const pai = pastaMap.get(pasta.pasta_pai.id);
                 if (pai) {
                     pai.subpastas!.push(pastaNode);
+                } else {
+                    // Se pai não existe, tratar como raiz
+                    raizes.push(pastaNode);
                 }
             } else {
                 raizes.push(pastaNode);
             }
         });
 
-        return raizes;
+        return raizes.sort((a, b) => a.ordem - b.ordem);
     }
 }
 

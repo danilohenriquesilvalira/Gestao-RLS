@@ -554,11 +554,16 @@ export interface ApiPastaCompartilhamentoPastaCompartilhamento
     pasta_pai: Attribute.Relation<
       'api::pasta-compartilhamento.pasta-compartilhamento',
       'manyToOne',
-      'plugin::users-permissions.user'
+      'api::pasta-compartilhamento.pasta-compartilhamento'
     >;
     permissoes: Attribute.JSON;
     publico: Attribute.Boolean & Attribute.DefaultTo<false>;
     publishedAt: Attribute.DateTime;
+    subpastas: Attribute.Relation<
+      'api::pasta-compartilhamento.pasta-compartilhamento',
+      'oneToMany',
+      'api::pasta-compartilhamento.pasta-compartilhamento'
+    >;
     updatedAt: Attribute.DateTime;
     updatedBy: Attribute.Relation<
       'api::pasta-compartilhamento.pasta-compartilhamento',

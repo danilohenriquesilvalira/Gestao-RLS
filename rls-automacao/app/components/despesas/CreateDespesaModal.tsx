@@ -1,5 +1,5 @@
 import React from 'react';
-import Modal from '@/components/ui/Modal';
+import { X } from 'lucide-react';
 import Button from '@/components/ui/Button';
 
 interface CreateDespesaModalProps {
@@ -26,99 +26,129 @@ export default function CreateDespesaModal({
     onSubmit,
     onClose
 }: CreateDespesaModalProps) {
+    if (!isOpen) return null;
+
     return (
-        <Modal
-            isOpen={isOpen}
-            onClose={onClose}
-            title="Nova Despesa"
-            size="lg"
-        >
-            <form onSubmit={onSubmit} className="space-y-6">
-                <div>
-                    <label className="block text-sm font-medium mb-2">Descrição *</label>
-                    <input
-                        type="text"
-                        required
-                        value={novaDespesa.descricao}
-                        onChange={(e) => onChange('descricao', e.target.value)}
-                        className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
-                        placeholder="Ex: Combustível, Refeição..."
-                    />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium mb-2">Valor (€) *</label>
-                        <input
-                            type="number"
-                            step="0.01"
-                            required
-                            value={novaDespesa.valor}
-                            onChange={(e) => onChange('valor', e.target.value)}
-                            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-2">Data *</label>
-                        <input
-                            type="date"
-                            required
-                            value={novaDespesa.data_despesa}
-                            onChange={(e) => onChange('data_despesa', e.target.value)}
-                            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
-                        />
-                    </div>
-                </div>
-
-                <div>
-                    <label className="block text-sm font-medium mb-2">Categoria</label>
-                    <select
-                        value={novaDespesa.categoria}
-                        onChange={(e) => onChange('categoria', e.target.value)}
-                        className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] overflow-hidden shadow-xl">
+                {/* Header */}
+                <div className="flex items-center justify-between p-3 border-b bg-gray-50">
+                    <h2 className="text-base font-semibold text-gray-900">Nova Despesa</h2>
+                    <button
+                        onClick={onClose}
+                        className="p-1 hover:bg-gray-200 rounded transition-colors"
+                        disabled={loading}
                     >
-                        <option value="combustivel">Combustível</option>
-                        <option value="alimentacao">Alimentação</option>
-                        <option value="transporte">Transporte</option>
-                        <option value="hospedagem">Hospedagem</option>
-                        <option value="outros">Outros</option>
-                    </select>
+                        <X className="w-4 h-4 text-gray-500" />
+                    </button>
                 </div>
 
-                <div>
-                    <label className="block text-sm font-medium mb-2">Observações</label>
-                    <textarea
-                        value={novaDespesa.observacoes}
-                        onChange={(e) => onChange('observacoes', e.target.value)}
-                        rows={3}
-                        className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
-                    />
+                {/* Form */}
+                <div className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 120px)' }}>
+                    <form onSubmit={onSubmit} className="p-3 space-y-3">
+                        {/* Descrição */}
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Descrição *</label>
+                            <input
+                                type="text"
+                                required
+                                value={novaDespesa.descricao}
+                                onChange={(e) => onChange('descricao', e.target.value)}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                placeholder="Ex: Combustível, Refeição..."
+                            />
+                        </div>
+
+                        {/* Valor e Data */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Valor (€) *</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    required
+                                    value={novaDespesa.valor}
+                                    onChange={(e) => onChange('valor', e.target.value)}
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Data *</label>
+                                <input
+                                    type="date"
+                                    required
+                                    value={novaDespesa.data_despesa}
+                                    onChange={(e) => onChange('data_despesa', e.target.value)}
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Categoria */}
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Categoria</label>
+                            <select
+                                value={novaDespesa.categoria}
+                                onChange={(e) => onChange('categoria', e.target.value)}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                            >
+                                <option value="combustivel">Combustível</option>
+                                <option value="alimentacao">Alimentação</option>
+                                <option value="transporte">Transporte</option>
+                                <option value="hospedagem">Hospedagem</option>
+                                <option value="outros">Outros</option>
+                            </select>
+                        </div>
+
+                        {/* Observações */}
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Observações</label>
+                            <textarea
+                                value={novaDespesa.observacoes}
+                                onChange={(e) => onChange('observacoes', e.target.value)}
+                                rows={3}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                                placeholder="Informações adicionais..."
+                            />
+                        </div>
+
+                        {/* Comprovativo */}
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Comprovativo</label>
+                            <input
+                                type="file"
+                                accept="image/*,.pdf"
+                                onChange={(e) => onChange('comprovativo', e.target.files?.[0] || null)}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+                            />
+                            {novaDespesa.comprovativo && (
+                                <p className="text-xs text-gray-500 mt-1">{novaDespesa.comprovativo.name}</p>
+                            )}
+                        </div>
+                    </form>
                 </div>
 
-                <div>
-                    <label className="block text-sm font-medium mb-2">Comprovativo</label>
-                    <input
-                        type="file"
-                        accept="image/*,.pdf"
-                        onChange={(e) => onChange('comprovativo', e.target.files?.[0] || null)}
-                        className="w-full border rounded-lg px-3 py-2"
-                    />
-                </div>
-
-                <div className="flex space-x-4 pt-4">
+                {/* Footer */}
+                <div className="flex gap-2 p-3 border-t bg-gray-50">
                     <Button
                         type="button"
                         variant="secondary"
                         onClick={onClose}
-                        className="flex-1"
+                        className="flex-1 text-sm py-2"
+                        disabled={loading}
                     >
                         Cancelar
                     </Button>
-                    <Button type="submit" loading={loading} className="flex-1">
+                    <Button
+                        type="submit"
+                        onClick={onSubmit}
+                        loading={loading}
+                        className="flex-1 bg-primary-500 hover:bg-primary-600 text-sm py-2"
+                    >
                         Criar
                     </Button>
                 </div>
-            </form>
-        </Modal>
+            </div>
+        </div>
     );
 }
