@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { storage } from '@/utils';
@@ -12,36 +12,23 @@ import {
   Receipt,
   FileText,
   Clock,
-  Share2, // ÍCONE PARA COMPARTILHAMENTO
+  Share2,
   User as UserIcon,
   LogOut,
   Loader2,
-  Bell,
   Search,
   Settings,
   ChevronDown,
 } from 'lucide-react';
 import RLSLogo from '@/components/RLSLogo';
-import NotificationDropdown from '@/components/ui/NotificationDropdown';
-
-interface Notification {
-  id: string;
-  message: string;
-  type: 'info' | 'success' | 'warning' | 'error';
-  timestamp: Date;
-  read: boolean;
-  user?: {
-    nomecompleto: string;
-    email: string;
-  };
-}
+import NotificationBell from '@/components/NotificationBell'; // IMPORT DO NOTIFICATION BELL
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
   { name: 'Despesas', href: '/dashboard/despesas', icon: Receipt },
   { name: 'Documentos', href: '/dashboard/documentos', icon: FileText },
   { name: 'Ponto', href: '/dashboard/ponto', icon: Clock },
-  { name: 'Compartilhamento', href: '/dashboard/compartilhamento', icon: Share2 }, // NOVA ABA
+  { name: 'Compartilhamento', href: '/dashboard/compartilhamento', icon: Share2 },
 ];
 
 export default function DashboardLayout({
@@ -53,12 +40,8 @@ export default function DashboardLayout({
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [pendingExpensesCount, setPendingExpensesCount] = useState(0);
 
   const userMenuRef = useRef<HTMLDivElement>(null);
-  const notificationsRef = useRef<HTMLDivElement>(null);
-
   const router = useRouter();
   const pathname = usePathname();
 
@@ -81,27 +64,9 @@ export default function DashboardLayout({
   }, [router]);
 
   useEffect(() => {
-    const updatePendingExpensesCount = () => {
-      const pending = localStorage.getItem('pendingExpensesCount');
-      const count = parseInt(pending || '0', 10);
-      setPendingExpensesCount(count);
-    };
-
-    updatePendingExpensesCount();
-    window.addEventListener('storage', updatePendingExpensesCount);
-
-    return () => {
-      window.removeEventListener('storage', updatePendingExpensesCount);
-    };
-  }, []);
-
-  useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setUserMenuOpen(false);
-      }
-      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
-        setNotificationsOpen(false);
       }
     }
 
@@ -111,52 +76,13 @@ export default function DashboardLayout({
     };
   }, []);
 
-  const realNotifications = useMemo(() => {
-    const currentNotifications: Notification[] = [];
-
-    if (pendingExpensesCount > 0) {
-      currentNotifications.push({
-        id: 'pending_expenses',
-        message: `Você tem ${pendingExpensesCount} despesa${
-          pendingExpensesCount > 1 ? 's' : ''
-        } aguardando aprovação.`,
-        type: 'warning',
-        timestamp: new Date(),
-        read: false,
-      });
-    }
-    return currentNotifications.sort((a, b) => {
-      if (a.read === b.read) {
-        return b.timestamp.getTime() - a.timestamp.getTime();
-      }
-      return a.read ? 1 : -1;
-    });
-  }, [pendingExpensesCount]);
-
-  const hasNotifications = realNotifications.filter((n) => !n.read).length > 0;
-
-  const handleMarkNotificationAsRead = (id: string) => {
-    if (id === 'pending_expenses') {
-      localStorage.removeItem('pendingExpensesCount');
-      setPendingExpensesCount(0);
-      setNotificationsOpen(false);
-    }
-  };
-
-  const handleBellClick = () => {
-    setNotificationsOpen((prev) => !prev);
-    setUserMenuOpen(false);
-  };
-
   const handleUserMenuClick = () => {
     setUserMenuOpen((prev) => !prev);
-    setNotificationsOpen(false);
   };
 
   const handleLogout = () => {
     storage.remove('token');
     storage.remove('user');
-    localStorage.removeItem('pendingExpensesCount');
     router.replace('/login');
   };
 
@@ -195,12 +121,8 @@ export default function DashboardLayout({
         lg:translate-x-0 flex flex-col`}
       >
         {/* Logo Header */}
-        <div
-          className={`relative flex items-center justify-center h-20 border-b border-gray-100 shadow-sm`}
-        >
-          <RLSLogo
-            className={`h-10 w-auto transition-transform duration-300 hover:scale-105`}
-          />
+        <div className={`relative flex items-center justify-center h-20 border-b border-gray-100 shadow-sm`}>
+          <RLSLogo className={`h-10 w-auto transition-transform duration-300 hover:scale-105`} />
           <button
             onClick={() => setSidebarOpen(false)}
             className="lg:hidden absolute right-4 p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-all duration-200"
@@ -276,9 +198,7 @@ export default function DashboardLayout({
       </div>
 
       {/* Main Content */}
-      <div
-        className={`${mainContentMargin} flex flex-col min-h-screen transition-all duration-300 ease-out`}
-      >
+      <div className={`${mainContentMargin} flex flex-col min-h-screen transition-all duration-300 ease-out`}>
         {/* Top Header */}
         <header className="sticky top-0 z-30 bg-white shadow-md">
           <div className="flex items-center justify-between h-20 px-6">
@@ -301,29 +221,8 @@ export default function DashboardLayout({
                 <Search className="w-6 h-6" />
               </button>
 
-              {/* Notifications */}
-              <div className="relative" ref={notificationsRef}>
-                <button
-                  onClick={handleBellClick}
-                  className="relative p-3 rounded-xl text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50"
-                  aria-label="Notificações"
-                >
-                  <Bell
-                    className={`w-6 h-6 ${
-                      hasNotifications ? 'text-red-500 animate-pulse-bell' : ''
-                    }`}
-                  />
-                  {hasNotifications && (
-                    <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full animate-ping-slow"></span>
-                  )}
-                </button>
-                <NotificationDropdown
-                  notifications={realNotifications}
-                  isOpen={notificationsOpen}
-                  onClose={() => setNotificationsOpen(false)}
-                  onMarkAsRead={handleMarkNotificationAsRead}
-                />
-              </div>
+              {/* NOTIFICATION BELL - COMPONENTE SEPARADO */}
+              <NotificationBell user={user} />
 
               {/* User menu - Desktop */}
               <div className="hidden lg:block relative" ref={userMenuRef}>
